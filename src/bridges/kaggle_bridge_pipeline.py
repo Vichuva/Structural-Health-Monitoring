@@ -23,6 +23,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
@@ -34,6 +35,7 @@ from src.utils.config import (
     BRIDGE_MODEL_PATH,
     BRIDGE_PREDICTIONS_PATH,
     BRIDGE_REGISTRY_PATH,
+    BRIDGE_XAI_SUMMARY_PATH,
     INSAR_IMAGE_MASK_THRESHOLD_QUANTILE,
     KAGGLE_BRIDGE_DATASET_PATH,
     RANDOM_SEED,
@@ -227,9 +229,15 @@ def _generate_bridge_insar_images(bridge_df, bridge_dir):
     images_dir = bridge_dir / "insar_images"
     masks_dir = bridge_dir / "insar_masks"
     overlays_dir = bridge_dir / "insar_overlays"
+    interferograms_dir = bridge_dir / "insar_interferograms"
+    heatmaps_dir = bridge_dir / "insar_heatmaps"
+    coherence_dir = bridge_dir / "insar_coherence"
     images_dir.mkdir(parents=True, exist_ok=True)
     masks_dir.mkdir(parents=True, exist_ok=True)
     overlays_dir.mkdir(parents=True, exist_ok=True)
+    interferograms_dir.mkdir(parents=True, exist_ok=True)
+    heatmaps_dir.mkdir(parents=True, exist_ok=True)
+    coherence_dir.mkdir(parents=True, exist_ok=True)
 
     sample_count = min(72, len(bridge_df))
     if sample_count <= 0:
@@ -270,6 +278,7 @@ def _generate_bridge_insar_images(bridge_df, bridge_dir):
     for index, (_, row) in enumerate(sampled.iterrows()):
         current = images[index]
         deformation = np.abs(current - baseline)
+        deformation_norm = deformation / (deformation.max() + 1e-9)
         positive = deformation[deformation > 0]
         if positive.size == 0:
             mask = np.zeros_like(deformation, dtype=np.uint8)
@@ -282,8 +291,18 @@ def _generate_bridge_insar_images(bridge_df, bridge_dir):
         mask_path = masks_dir / f"mask_{stamp}.png"
         overlay_path = overlays_dir / f"overlay_{stamp}.png"
         image_path = images_dir / f"sar_{stamp}.png"
+        interferogram_path = interferograms_dir / f"interferogram_{stamp}.png"
+        heatmap_path = heatmaps_dir / f"heatmap_{stamp}.png"
+        coherence_path = coherence_dir / f"coherence_{stamp}.png"
+
+        interferogram_phase = np.angle(np.exp(1j * 10 * np.pi * (current - baseline)))
+        interferogram_norm = (interferogram_phase + np.pi) / (2 * np.pi)
+        coherence = np.clip(1.0 - 0.85 * deformation_norm, 0, 1)
 
         plt.imsave(mask_path, mask, cmap="gray")
+        plt.imsave(interferogram_path, interferogram_norm, cmap="twilight")
+        plt.imsave(heatmap_path, deformation_norm, cmap="magma")
+        plt.imsave(coherence_path, coherence, cmap="viridis")
         overlay = np.dstack([current, current, current])
         overlay[mask == 1] = [1.0, 0.15, 0.15]
         plt.imsave(overlay_path, overlay)
@@ -294,7 +313,12 @@ def _generate_bridge_insar_images(bridge_df, bridge_dir):
                 "image_path": str(image_path),
                 "mask_path": str(mask_path),
                 "overlay_path": str(overlay_path),
+                "interferogram_path": str(interferogram_path),
+                "heatmap_path": str(heatmap_path),
+                "coherence_path": str(coherence_path),
                 "mask_ratio": float(mask.mean()),
+                "deformation_energy": float(deformation_norm.mean()),
+                "coherence_mean": float(coherence.mean()),
             }
         )
 
@@ -356,6 +380,82 @@ def _optimal_threshold(y_true, probabilities):
     f1_scores = (2 * precision[:-1] * recall[:-1]) / (precision[:-1] + recall[:-1] + 1e-12)
     best_index = int(np.nanargmax(f1_scores))
     return float(thresholds[best_index])
+
+
+def _build_reference_values(feature_frame):
+    reference_values = {}
+    for column in feature_frame.columns:
+        series = feature_frame[column]
+        if pd.api.types.is_numeric_dtype(series):
+            value = series.median()
+            reference_values[column] = None if pd.isna(value) else float(value)
+        else:
+            mode = series.mode(dropna=True)
+            reference_values[column] = None if mode.empty else str(mode.iloc[0])
+    return reference_values
+
+
+def _compute_global_explainability(model_pipeline, x_test, y_test, feature_columns):
+    sample_size = min(2500, len(x_test))
+    sampled_x = x_test.sample(n=sample_size, random_state=RANDOM_SEED) if len(x_test) > sample_size else x_test
+    sampled_y = y_test.loc[sampled_x.index]
+
+    importance = permutation_importance(
+        model_pipeline,
+        sampled_x,
+        sampled_y,
+        n_repeats=4,
+        random_state=RANDOM_SEED,
+        scoring="average_precision",
+        n_jobs=1,
+    )
+
+    importance_frame = pd.DataFrame(
+        {
+            "feature": feature_columns,
+            "importance_mean": importance.importances_mean,
+            "importance_std": importance.importances_std,
+        }
+    ).sort_values("importance_mean", ascending=False)
+
+    top_features = importance_frame.head(16).copy()
+    summary = [
+        {
+            "feature": row["feature"],
+            "importance_mean": float(row["importance_mean"]),
+            "importance_std": float(row["importance_std"]),
+        }
+        for _, row in top_features.iterrows()
+    ]
+    return summary, top_features["feature"].tolist()
+
+
+def explain_prediction_row(model_pipeline, row_frame, reference_values, feature_priority, top_n=8):
+    base_probability = float(model_pipeline.predict_proba(row_frame)[:, 1][0])
+    impacts = []
+
+    for feature in feature_priority:
+        if feature not in row_frame.columns or feature not in reference_values:
+            continue
+        modified = row_frame.copy()
+        modified.at[row_frame.index[0], feature] = reference_values[feature]
+        new_probability = float(model_pipeline.predict_proba(modified)[:, 1][0])
+        impacts.append(
+            {
+                "feature": feature,
+                "impact": base_probability - new_probability,
+                "baseline_probability": base_probability,
+                "counterfactual_probability": new_probability,
+            }
+        )
+
+    impact_frame = pd.DataFrame(impacts)
+    if impact_frame.empty:
+        return impact_frame
+
+    impact_frame["abs_impact"] = impact_frame["impact"].abs()
+    impact_frame = impact_frame.sort_values("abs_impact", ascending=False).head(top_n).reset_index(drop=True)
+    return impact_frame.drop(columns=["abs_impact"])
 
 
 def _build_model_pipeline(feature_frame):
@@ -435,6 +535,7 @@ def train_bridge_anomaly_model(df):
     y = _build_target(engineered)
     feature_columns = _select_features(engineered)
     x = engineered[feature_columns].copy()
+    reference_values = _build_reference_values(x)
 
     x_train_val, x_test, y_train_val, y_test = train_test_split(
         x,
@@ -483,7 +584,15 @@ def train_bridge_anomaly_model(df):
     else:
         metrics["roc_auc"] = None
 
-    return final_pipeline, feature_columns, threshold, metrics
+    global_xai, priority_features = _compute_global_explainability(
+        final_pipeline,
+        x_test,
+        y_test,
+        feature_columns,
+    )
+
+    metrics["xai_top_features"] = global_xai
+    return final_pipeline, feature_columns, threshold, metrics, reference_values, priority_features
 
 
 def generate_predictions(df, model_pipeline, threshold):
@@ -522,7 +631,14 @@ def run_kaggle_bridge_pipeline(dataset_path=KAGGLE_BRIDGE_DATASET_PATH):
 
     export_bridge_views(assigned)
 
-    model_pipeline, feature_columns, threshold, metrics = train_bridge_anomaly_model(assigned)
+    (
+        model_pipeline,
+        feature_columns,
+        threshold,
+        metrics,
+        reference_values,
+        priority_features,
+    ) = train_bridge_anomaly_model(assigned)
     predictions = generate_predictions(assigned, model_pipeline, threshold)
 
     BRIDGE_PREDICTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -536,6 +652,8 @@ def run_kaggle_bridge_pipeline(dataset_path=KAGGLE_BRIDGE_DATASET_PATH):
                 "feature_columns": feature_columns,
                 "threshold": threshold,
                 "model_name": MODEL_NAME,
+                "reference_values": reference_values,
+                "priority_features": priority_features,
             },
             handle,
         )
@@ -543,6 +661,20 @@ def run_kaggle_bridge_pipeline(dataset_path=KAGGLE_BRIDGE_DATASET_PATH):
     BRIDGE_MODEL_METRICS_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(BRIDGE_MODEL_METRICS_PATH, "w", encoding="utf-8") as handle:
         json.dump(metrics, handle, indent=2)
+
+    BRIDGE_XAI_SUMMARY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(BRIDGE_XAI_SUMMARY_PATH, "w", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "model_name": MODEL_NAME,
+                "global_feature_importance": metrics.get("xai_top_features", []),
+            },
+            handle,
+            indent=2,
+        )
+
+    for bridge in BRIDGE_CATALOG:
+        run_bridge_inference(bridge["bridge_id"])
 
     return {
         "rows": int(len(assigned)),
@@ -580,6 +712,8 @@ def run_bridge_inference(bridge_id, return_trace=False):
     model_pipeline = artifact["model_pipeline"]
     threshold = artifact["threshold"]
     model_name = artifact.get("model_name", MODEL_NAME)
+    reference_values = artifact.get("reference_values", {})
+    priority_features = artifact.get("priority_features", [])
 
     stage_trace = []
     total_start = time.perf_counter()
@@ -633,6 +767,28 @@ def run_bridge_inference(bridge_id, return_trace=False):
     )
 
     start = time.perf_counter()
+    engineered_frame = engineer_bridge_features(bridge_df)
+    top_index = int(predictions["anomaly_probability"].idxmax())
+    explanation_row = engineered_frame.loc[[top_index], _select_features(engineered_frame)].copy()
+    local_xai = explain_prediction_row(
+        model_pipeline,
+        explanation_row,
+        reference_values,
+        priority_features,
+        top_n=8,
+    )
+    local_xai_path = bridge_dir / "xai_top_factors.csv"
+    local_xai.to_csv(local_xai_path, index=False)
+    stage_trace.append(
+        {
+            "stage": "Explainability",
+            "detail": "Resolved the strongest local anomaly drivers with counterfactual feature ablation.",
+            "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+            "top_drivers": int(len(local_xai)),
+        }
+    )
+
+    start = time.perf_counter()
     hotspot_count = int(
         predictions["Vibration_Anomaly_Location"].fillna("Deck").astype(str).nunique()
         if "Vibration_Anomaly_Location" in predictions.columns
@@ -654,6 +810,7 @@ def run_bridge_inference(bridge_id, return_trace=False):
         "bridge_id": bridge_id,
         "model_name": model_name,
         "threshold": float(threshold),
+        "local_xai_path": str(local_xai_path),
         "total_duration_ms": round((time.perf_counter() - total_start) * 1000, 2),
         "stages": stage_trace,
     }

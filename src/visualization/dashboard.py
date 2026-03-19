@@ -19,6 +19,7 @@ st.set_page_config(page_title="Bridge SHM Control Room", layout="wide")
 registry_path = project_root / "data" / "bridges" / "bridge_registry.csv"
 predictions_path = project_root / "data" / "bridges" / "bridge_predictions.csv"
 metrics_path = project_root / "models" / "bridge_anomaly_metrics.json"
+xai_summary_path = project_root / "models" / "bridge_xai_summary.json"
 
 
 def inject_theme():
@@ -27,145 +28,63 @@ def inject_theme():
         <style>
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(18, 88, 125, 0.28), transparent 32%),
-                radial-gradient(circle at top right, rgba(191, 84, 0, 0.20), transparent 28%),
+                radial-gradient(circle at top left, rgba(18,88,125,0.28), transparent 32%),
+                radial-gradient(circle at top right, rgba(191,84,0,0.20), transparent 28%),
                 linear-gradient(180deg, #07121d 0%, #0d1724 42%, #0b1017 100%);
             color: #e6eef8;
             font-family: "Trebuchet MS", "Segoe UI", sans-serif;
         }
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-        }
-        .hero-panel {
-            padding: 1.4rem 1.6rem;
-            border: 1px solid rgba(135, 178, 220, 0.18);
-            background: linear-gradient(135deg, rgba(10, 24, 36, 0.94), rgba(14, 36, 52, 0.88));
+        .block-container { max-width: 1480px; padding-top: 1.5rem; padding-bottom: 2rem; }
+        .hero, .metric-card, .pipe-card {
+            border: 1px solid rgba(121,160,199,0.14);
+            background: rgba(7,15,24,0.78);
             border-radius: 22px;
-            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
-            margin-bottom: 1rem;
+            box-shadow: 0 16px 60px rgba(0,0,0,0.22);
         }
-        .hero-kicker {
-            color: #7dd3fc;
-            font-size: 0.82rem;
-            text-transform: uppercase;
-            letter-spacing: 0.16rem;
-            margin-bottom: 0.45rem;
-        }
-        .hero-title {
-            font-size: 2.35rem;
-            font-weight: 700;
-            color: #f8fbff;
-            line-height: 1.05;
-            margin-bottom: 0.55rem;
-        }
-        .hero-copy {
-            max-width: 68rem;
-            color: #b8cbdf;
-            font-size: 1rem;
-        }
-        .metric-strip {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.8rem;
-            margin: 1rem 0 1.3rem 0;
-        }
-        .metric-card {
-            padding: 1rem 1.1rem;
-            border-radius: 18px;
-            border: 1px solid rgba(129, 167, 205, 0.16);
-            background: rgba(10, 20, 30, 0.72);
-        }
-        .metric-label {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08rem;
-            color: #7f99b4;
-        }
-        .metric-value {
-            color: #f7fbff;
-            font-size: 1.55rem;
-            font-weight: 700;
-            margin-top: 0.2rem;
-        }
-        .pipeline-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-            gap: 0.8rem;
-            margin-top: 0.8rem;
-        }
-        .pipeline-card {
-            padding: 1rem;
-            border-radius: 18px;
-            background: linear-gradient(180deg, rgba(9, 20, 30, 0.95), rgba(15, 37, 55, 0.88));
-            border: 1px solid rgba(104, 160, 214, 0.18);
-            min-height: 160px;
-        }
-        .pipeline-stage {
-            color: #eff7ff;
-            font-size: 1.05rem;
-            font-weight: 700;
-            margin-bottom: 0.4rem;
-        }
-        .pipeline-detail {
-            color: #a8c0d8;
-            font-size: 0.9rem;
-            line-height: 1.45;
-            min-height: 4.3rem;
-        }
-        .pipeline-meta {
-            color: #77d5b2;
-            font-size: 0.82rem;
-            margin-top: 0.7rem;
-        }
-        .panel-shell {
-            padding: 1rem 1.1rem;
-            border-radius: 20px;
-            border: 1px solid rgba(121, 160, 199, 0.14);
-            background: rgba(7, 15, 24, 0.74);
-            margin-bottom: 1rem;
-        }
-        .section-title {
-            color: #edf7ff;
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-bottom: 0.75rem;
-        }
+        .hero { padding: 1.35rem 1.5rem; margin-bottom: 1rem; }
+        .kicker { color: #7dd3fc; font-size: .82rem; text-transform: uppercase; letter-spacing: .16rem; }
+        .title { color: #f8fbff; font-size: 2.2rem; font-weight: 700; line-height: 1.04; margin-top: .25rem; }
+        .copy { color: #b8cbdf; font-size: 1rem; margin-top: .45rem; }
+        .metric-card { padding: 1rem 1.1rem; min-height: 120px; }
+        .metric-label { color: #7f99b4; font-size: .8rem; text-transform: uppercase; letter-spacing: .08rem; }
+        .metric-value { color: #f7fbff; font-size: 1.65rem; font-weight: 700; margin-top: .3rem; }
+        .metric-copy { color: #9fb8ce; font-size: .88rem; margin-top: .35rem; line-height: 1.35; }
+        .pipe-card { padding: 1rem; min-height: 190px; }
+        .pipe-stage { color: #eff7ff; font-size: 1.02rem; font-weight: 700; margin-bottom: .35rem; }
+        .pipe-detail { color: #a8c0d8; font-size: .91rem; line-height: 1.48; min-height: 4.6rem; }
+        .pipe-meta { color: #77d5b2; font-size: .82rem; margin-top: .7rem; line-height: 1.45; }
+        .stTabs [data-baseweb="tab-list"] { gap: .5rem; }
+        .stTabs [data-baseweb="tab"] { border-radius: 999px; padding: .45rem 1rem; background: rgba(19,34,48,.9); }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
 
-def ensure_bridge_assets():
-    if registry_path.exists() and predictions_path.exists() and metrics_path.exists():
-        return
-    with st.spinner("Training advanced bridge ensemble and preparing digital twin assets..."):
-        run_kaggle_bridge_pipeline()
-
-
-def load_registry():
-    return pd.read_csv(registry_path)
-
-
-def load_metrics():
-    if not metrics_path.exists():
+def load_json(path):
+    if not path.exists():
         return {}
-    with open(metrics_path, "r", encoding="utf-8") as handle:
+    with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
-def load_bridge_summary():
-    registry = load_registry()
-    predictions = pd.read_csv(predictions_path)
-    predictions["timestamp"] = pd.to_datetime(predictions["timestamp"], errors="coerce")
+def ensure_assets():
+    if registry_path.exists() and predictions_path.exists() and metrics_path.exists():
+        return
+    with st.spinner("Preparing bridge analytics assets..."):
+        run_kaggle_bridge_pipeline()
+
+
+def load_summary():
+    registry = pd.read_csv(registry_path)
+    preds = pd.read_csv(predictions_path)
+    preds["timestamp"] = pd.to_datetime(preds["timestamp"], errors="coerce")
     summary = (
-        predictions.groupby("bridge_id")
+        preds.groupby("bridge_id")
         .agg(
             anomaly_count=("anomaly", "sum"),
             avg_probability=("anomaly_probability", "mean"),
             max_probability=("anomaly_probability", "max"),
-            latest_timestamp=("timestamp", "max"),
         )
         .reset_index()
     )
@@ -176,111 +95,74 @@ def load_bridge_summary():
     return merged
 
 
-def render_header(summary_df, metrics):
-    st.markdown(
-        """
-        <div class="hero-panel">
-            <div class="hero-kicker">Bridge Digital Twin Command Layer</div>
-            <div class="hero-title">Spatiotemporal anomaly orchestration across a live bridge fleet</div>
-            <div class="hero-copy">
-                The control room fuses bridge telemetry, GNSS, synthetic InSAR deformation frames, and a stacked
-                spatiotemporal ensemble model. Select any bridge to replay the pipeline, score the bridge, and project
-                anomalies into the 3D twin with hot zones exposed.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    bridge_count = int(summary_df["bridge_id"].nunique())
-    total_anomalies = int(summary_df["anomaly_count"].sum())
-    max_probability = float(summary_df["max_probability"].max())
-    model_name = metrics.get("model_name", "advanced_bridge_model")
-
-    st.markdown(
-        f"""
-        <div class="metric-strip">
-            <div class="metric-card">
-                <div class="metric-label">Fleet Bridges</div>
-                <div class="metric-value">{bridge_count}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Open Anomaly Events</div>
-                <div class="metric-value">{total_anomalies}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Peak Fleet Risk</div>
-                <div class="metric-value">{max_probability:.3f}</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Scoring Engine</div>
-                <div class="metric-value" style="font-size:1.0rem;">{model_name}</div>
-            </div>
-        </div>
-        """,
+def metric_card(column, label, value, copy):
+    column.markdown(
+        (
+            '<div class="metric-card">'
+            f'<div class="metric-label">{label}</div>'
+            f'<div class="metric-value">{value}</div>'
+            f'<div class="metric-copy">{copy}</div>'
+            "</div>"
+        ),
         unsafe_allow_html=True,
     )
 
 
-def build_fleet_map(summary_df, selected_bridge_id):
-    marker_sizes = 18 + summary_df["anomaly_count"].clip(lower=1) * 0.45
-    marker_sizes = marker_sizes.clip(upper=34)
-    marker_colors = summary_df["max_probability"].clip(0, 1)
+def section(title):
+    st.subheader(title)
 
+
+def build_map(summary, selected_bridge_id):
     figure = go.Figure()
-
-    for _, row in summary_df.iterrows():
+    current = summary.loc[summary["bridge_id"] == selected_bridge_id].iloc[0]
+    for _, row in summary.iterrows():
         if row["bridge_id"] == selected_bridge_id:
             continue
-        selected_row = summary_df.loc[summary_df["bridge_id"] == selected_bridge_id].iloc[0]
         figure.add_trace(
             go.Scattergeo(
-                lon=[selected_row["lon"], row["lon"]],
-                lat=[selected_row["lat"], row["lat"]],
+                lon=[current["lon"], row["lon"]],
+                lat=[current["lat"], row["lat"]],
                 mode="lines",
-                line={"width": 1.2, "color": "rgba(112, 184, 255, 0.28)"},
+                line={"width": 1.0, "color": "rgba(110,193,255,0.22)"},
                 hoverinfo="skip",
                 showlegend=False,
             )
         )
-
     figure.add_trace(
         go.Scattergeo(
-            lon=summary_df["lon"],
-            lat=summary_df["lat"],
-            text=summary_df["bridge_name"],
+            lon=summary["lon"],
+            lat=summary["lat"],
+            text=summary["bridge_name"],
             customdata=np.stack(
                 [
-                    summary_df["bridge_id"],
-                    summary_df["city"],
-                    summary_df["anomaly_count"].astype(str),
-                    summary_df["max_probability"].map(lambda value: f"{value:.3f}"),
+                    summary["bridge_id"],
+                    summary["city"],
+                    summary["region"],
+                    summary["anomaly_count"].astype(str),
+                    summary["max_probability"].map(lambda v: f"{v:.3f}"),
                 ],
                 axis=1,
             ),
             mode="markers+text",
             textposition="top center",
             marker={
-                "size": marker_sizes,
-                "color": marker_colors,
+                "size": (18 + summary["anomaly_count"].clip(lower=1) * 0.5).clip(upper=34),
+                "color": summary["max_probability"],
                 "colorscale": "Turbo",
                 "cmin": 0,
                 "cmax": 1,
-                "line": {"width": 2.5, "color": "#eff7ff"},
-                "opacity": 0.94,
+                "line": {"width": 2.4, "color": "#eff7ff"},
+                "opacity": 0.95,
                 "colorbar": {"title": "Max Risk"},
             },
             hovertemplate=(
-                "<b>%{text}</b><br>"
-                "Bridge ID: %{customdata[0]}<br>"
-                "City: %{customdata[1]}<br>"
-                "Anomalies: %{customdata[2]}<br>"
-                "Peak risk: %{customdata[3]}<extra></extra>"
+                "<b>%{text}</b><br>Bridge ID: %{customdata[0]}<br>City: %{customdata[1]}"
+                "<br>Region: %{customdata[2]}<br>Anomalies: %{customdata[3]}"
+                "<br>Peak risk: %{customdata[4]}<extra></extra>"
             ),
             showlegend=False,
         )
     )
-
     figure.update_geos(
         scope="usa",
         projection_type="albers usa",
@@ -290,11 +172,11 @@ def build_fleet_map(summary_df, selected_bridge_id):
         oceancolor="#08131f",
         showlakes=True,
         lakecolor="#0a1a2b",
-        subunitcolor="rgba(152, 181, 204, 0.35)",
-        countrycolor="rgba(152, 181, 204, 0.35)",
+        subunitcolor="rgba(152,181,204,0.35)",
+        countrycolor="rgba(152,181,204,0.35)",
     )
     figure.update_layout(
-        height=430,
+        height=450,
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -307,459 +189,332 @@ def _signal_positions(pred_df):
     ranked = pred_df.sort_values("anomaly_probability", ascending=False).head(180).copy()
     if ranked.empty:
         return ranked, np.array([]), np.array([]), np.array([])
-
     stress = pd.to_numeric(ranked.get("Simulated_Localized_Stress_Index"), errors="coerce")
     if stress.notna().any():
-        span_ratio = (stress - stress.min()) / (stress.max() - stress.min() + 1e-9)
+        ratio = (stress - stress.min()) / (stress.max() - stress.min() + 1e-9)
     else:
-        span_ratio = pd.Series(np.linspace(0.05, 0.95, len(ranked)), index=ranked.index)
-
-    x_position = 70 + 860 * span_ratio.to_numpy()
-    location = ranked.get("Vibration_Anomaly_Location", pd.Series("Deck", index=ranked.index))
-    location = location.fillna("Deck").astype(str)
-
-    y_position = np.zeros(len(ranked))
+        ratio = pd.Series(np.linspace(0.05, 0.95, len(ranked)), index=ranked.index)
+    x_pos = 70 + 860 * ratio.to_numpy()
+    loc = ranked.get("Vibration_Anomaly_Location", pd.Series("Deck", index=ranked.index)).fillna("Deck").astype(str)
+    y_pos = np.zeros(len(ranked))
     z_base = np.full(len(ranked), 20.0)
-
-    cable_mask = location.str.contains("Cable", case=False, regex=False)
-    pier_mask = location.str.contains("Pier", case=False, regex=False)
-    deck_mask = ~(cable_mask | pier_mask)
-
-    y_position[cable_mask.to_numpy()] = np.where(np.arange(cable_mask.sum()) % 2 == 0, -19, 19)
+    cable_mask = loc.str.contains("Cable", case=False, regex=False)
+    pier_mask = loc.str.contains("Pier", case=False, regex=False)
+    y_pos[cable_mask.to_numpy()] = np.where(np.arange(cable_mask.sum()) % 2 == 0, -19, 19)
     z_base[cable_mask.to_numpy()] = 52
-    x_position[pier_mask.to_numpy()] = np.where(x_position[pier_mask.to_numpy()] < 500, 250, 750)
+    x_pos[pier_mask.to_numpy()] = np.where(x_pos[pier_mask.to_numpy()] < 500, 250, 750)
     z_base[pier_mask.to_numpy()] = 7
-    y_position[deck_mask.to_numpy()] = 0
-
-    return ranked, x_position, y_position, z_base
+    return ranked, x_pos, y_pos, z_base
 
 
-def build_bridge_3d_figure(pred_df, bridge_name):
+def build_bridge_figure(pred_df, bridge_name):
     span = np.linspace(0, 1000, 280)
     deck_z = 18 + 0.9 * np.sin(span / 65)
     cable_z = 78 - ((span - 500) ** 2) / 7600
-
     figure = go.Figure()
-
     figure.add_trace(
         go.Mesh3d(
             x=np.concatenate([span, span]),
             y=np.concatenate([np.full_like(span, -8), np.full_like(span, 8)]),
             z=np.concatenate([deck_z, deck_z]),
-            color="#6a7f93",
-            opacity=0.48,
-            name="Bridge Deck",
+            color="#61788b",
+            opacity=0.52,
+            name="Deck",
             showscale=False,
         )
     )
-
     for offset, name in [(-22, "Cable South"), (22, "Cable North")]:
         figure.add_trace(
-            go.Scatter3d(
-                x=span,
-                y=np.full_like(span, offset),
-                z=cable_z,
-                mode="lines",
-                line={"width": 4, "color": "#c8d2dd"},
-                name=name,
-            )
+            go.Scatter3d(x=span, y=np.full_like(span, offset), z=cable_z, mode="lines", line={"width": 4, "color": "#d0d9e2"}, name=name)
         )
-
     for tower_x in [250, 750]:
         figure.add_trace(
             go.Scatter3d(
-                x=[tower_x, tower_x],
-                y=[0, 0],
-                z=[0, 86],
-                mode="lines",
-                line={"width": 10, "color": "#4b5f72"},
-                name="Tower" if tower_x == 250 else "Tower ",
-                showlegend=(tower_x == 250),
+                x=[tower_x, tower_x], y=[0, 0], z=[0, 86], mode="lines",
+                line={"width": 10, "color": "#4b5f72"}, name="Tower" if tower_x == 250 else "Tower ", showlegend=(tower_x == 250)
             )
         )
-
-    sensor_nodes = np.linspace(80, 920, 12)
-    sensor_heights = np.interp(sensor_nodes, span, deck_z) + 1.2
+    nodes = np.linspace(80, 920, 12)
     figure.add_trace(
-        go.Scatter3d(
-            x=sensor_nodes,
-            y=np.zeros_like(sensor_nodes),
-            z=sensor_heights,
-            mode="markers",
-            marker={"size": 6, "color": "#4dd0e1"},
-            name="Sensor Nodes",
-        )
+        go.Scatter3d(x=nodes, y=np.zeros_like(nodes), z=np.interp(nodes, span, deck_z) + 1.2, mode="markers", marker={"size": 6, "color": "#4dd0e1"}, name="Sensor Nodes")
     )
-
-    ranked, x_position, y_position, z_base = _signal_positions(pred_df)
+    ranked, x_pos, y_pos, z_base = _signal_positions(pred_df)
     if not ranked.empty:
         z_top = z_base + 10 + 48 * ranked["anomaly_probability"].clip(0, 1).to_numpy()
-        beam_x = []
-        beam_y = []
-        beam_z = []
-        for x_value, y_value, z_start, z_end in zip(x_position, y_position, z_base, z_top):
-            beam_x.extend([x_value, x_value, None])
-            beam_y.extend([y_value, y_value, None])
-            beam_z.extend([z_start, z_end, None])
-
+        bx, by, bz = [], [], []
+        for xv, yv, zs, ze in zip(x_pos, y_pos, z_base, z_top):
+            bx.extend([xv, xv, None]); by.extend([yv, yv, None]); bz.extend([zs, ze, None])
+        figure.add_trace(go.Scatter3d(x=bx, y=by, z=bz, mode="lines", line={"width": 4, "color": "rgba(255,164,79,0.45)"}, hoverinfo="skip", name="Risk Beams"))
         figure.add_trace(
             go.Scatter3d(
-                x=beam_x,
-                y=beam_y,
-                z=beam_z,
-                mode="lines",
-                line={"width": 4, "color": "rgba(255, 164, 79, 0.45)"},
-                hoverinfo="skip",
-                name="Risk Beams",
-            )
-        )
-        figure.add_trace(
-            go.Scatter3d(
-                x=x_position,
-                y=y_position,
-                z=z_top,
-                mode="markers",
-                marker={
-                    "size": 7 + 18 * ranked["anomaly_probability"].clip(0, 1).to_numpy(),
-                    "color": ranked["anomaly_probability"],
-                    "colorscale": "Turbo",
-                    "cmin": 0,
-                    "cmax": 1,
-                    "showscale": True,
-                    "colorbar": {"title": "Risk"},
-                    "opacity": 0.96,
-                },
-                customdata=np.stack(
-                    [
-                        ranked["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S"),
-                        ranked["anomaly_probability"].map(lambda value: f"{value:.3f}"),
-                        ranked.get("Vibration_Anomaly_Location", pd.Series("Deck", index=ranked.index))
-                        .fillna("Deck")
-                        .astype(str),
-                    ],
-                    axis=1,
-                ),
-                hovertemplate=(
-                    "Timestamp: %{customdata[0]}<br>"
-                    "Risk: %{customdata[1]}<br>"
-                    "Zone: %{customdata[2]}<br>"
-                    "Span X: %{x:.1f} m<extra></extra>"
-                ),
+                x=x_pos, y=y_pos, z=z_top, mode="markers",
+                marker={"size": 7 + 18 * ranked["anomaly_probability"].clip(0, 1).to_numpy(), "color": ranked["anomaly_probability"], "colorscale": "Turbo", "cmin": 0, "cmax": 1, "showscale": True, "colorbar": {"title": "Risk"}, "opacity": 0.96},
+                customdata=np.stack([ranked["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S"), ranked["anomaly_probability"].map(lambda v: f"{v:.3f}")], axis=1),
+                hovertemplate="Timestamp: %{customdata[0]}<br>Risk: %{customdata[1]}<br>Span X: %{x:.1f} m<extra></extra>",
                 name="Anomaly Markers",
             )
         )
-
     figure.update_layout(
         title=f"3D Twin Projection - {bridge_name}",
         height=720,
         margin={"l": 0, "r": 0, "t": 45, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        scene={
-            "xaxis": {"title": "Bridge Span (m)", "backgroundcolor": "rgba(0,0,0,0)"},
-            "yaxis": {"title": "Lateral Offset (m)", "backgroundcolor": "rgba(0,0,0,0)"},
-            "zaxis": {"title": "Elevation (m)", "backgroundcolor": "rgba(0,0,0,0)"},
-            "camera": {"eye": {"x": 1.55, "y": 1.25, "z": 0.85}},
-            "aspectratio": {"x": 2.6, "y": 0.7, "z": 0.8},
-        },
+        scene={"xaxis": {"title": "Bridge Span (m)"}, "yaxis": {"title": "Lateral Offset (m)"}, "zaxis": {"title": "Elevation (m)"}, "camera": {"eye": {"x": 1.55, "y": 1.25, "z": 0.85}}, "aspectratio": {"x": 2.6, "y": 0.7, "z": 0.8}},
         font={"color": "#eff7ff"},
     )
     return figure
 
 
-def build_timeseries_figure(frame, columns, title, colors):
+def line_chart(frame, columns, title, colors, selected_timestamp=None):
     figure = go.Figure()
     for column, color in zip(columns, colors):
-        if column not in frame.columns:
-            continue
-        figure.add_trace(
-            go.Scatter(
-                x=frame["timestamp"],
-                y=frame[column],
-                mode="lines",
-                name=column,
-                line={"width": 2.2, "color": color},
-            )
-        )
+        if column in frame.columns:
+            figure.add_trace(go.Scatter(x=frame["timestamp"], y=frame[column], mode="lines", name=column, line={"width": 2.2, "color": color}))
+    if selected_timestamp is not None:
+        figure.add_vline(x=selected_timestamp, line_width=1.4, line_dash="dash", line_color="rgba(255,255,255,0.35)")
     figure.update_layout(
-        title=title,
-        height=320,
-        margin={"l": 0, "r": 0, "t": 38, "b": 0},
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font={"color": "#eaf4ff"},
-        xaxis={"title": None},
-        yaxis={"title": None, "gridcolor": "rgba(158, 193, 220, 0.12)"},
-        legend={"orientation": "h"},
+        title=title, height=320, margin={"l": 0, "r": 0, "t": 38, "b": 0},
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={"color": "#eaf4ff"},
+        xaxis={"title": None}, yaxis={"title": None, "gridcolor": "rgba(158,193,220,0.12)"}, legend={"orientation": "h"},
     )
     return figure
 
 
-def animate_runtime_trace(runtime):
-    status = st.status(
-        f"Running {runtime['model_name']} for {runtime['bridge_id']}...",
-        expanded=True,
+def bar_chart(frame, x_col, y_col, title, color):
+    fig = go.Figure(go.Bar(x=frame[x_col], y=frame[y_col], orientation="h", marker={"color": color}))
+    fig.update_layout(
+        title=title, height=360, margin={"l": 0, "r": 0, "t": 38, "b": 0},
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={"color": "#eaf4ff"},
+        xaxis={"gridcolor": "rgba(158,193,220,0.12)"}, yaxis={"gridcolor": "rgba(158,193,220,0.08)"},
     )
+    return fig
+
+
+def insar_activity(mask_meta, insar_df, selected_timestamp):
+    fig = go.Figure()
+    if not insar_df.empty and "los_displacement" in insar_df.columns:
+        fig.add_trace(go.Scatter(x=insar_df["timestamp"], y=insar_df["los_displacement"], mode="lines", name="LOS displacement", line={"color": "#ff8a65", "width": 2.6}, yaxis="y1"))
+    if not mask_meta.empty:
+        if "mask_ratio" in mask_meta.columns:
+            fig.add_trace(go.Scatter(x=mask_meta["timestamp"], y=mask_meta["mask_ratio"], mode="lines+markers", name="Mask ratio", line={"color": "#6ee7b7", "width": 2.0}, marker={"size": 6}, yaxis="y2"))
+        if "coherence_mean" in mask_meta.columns:
+            fig.add_trace(go.Scatter(x=mask_meta["timestamp"], y=mask_meta["coherence_mean"], mode="lines", name="Mean coherence", line={"color": "#7dd3fc", "width": 1.8, "dash": "dot"}, yaxis="y2"))
+    if selected_timestamp is not None:
+        fig.add_vline(x=selected_timestamp, line_width=1.5, line_dash="dash", line_color="rgba(255,255,255,0.4)")
+    fig.update_layout(
+        title="InSAR temporal activity", height=360, margin={"l": 0, "r": 0, "t": 38, "b": 0},
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={"color": "#eaf4ff"},
+        xaxis={"title": None}, yaxis={"title": "LOS disp", "gridcolor": "rgba(158,193,220,0.12)"},
+        yaxis2={"title": "Mask / coherence", "overlaying": "y", "side": "right", "showgrid": False},
+        legend={"orientation": "h"},
+    )
+    return fig
+
+
+def animate_runtime(runtime):
+    status = st.status(f"Running {runtime['model_name']} for {runtime['bridge_id']}...", expanded=True)
     progress = st.progress(0)
-
-    stage_count = max(1, len(runtime["stages"]))
-    for index, stage in enumerate(runtime["stages"], start=1):
-        progress.progress(index / stage_count)
-        status.write(
-            f"`{stage['stage']}` in {stage['duration_ms']} ms: {stage['detail']}"
-        )
+    total = max(1, len(runtime["stages"]))
+    for idx, stage in enumerate(runtime["stages"], start=1):
+        progress.progress(idx / total)
+        status.write(f"`{stage['stage']}` in {stage['duration_ms']} ms: {stage['detail']}")
         time.sleep(0.08)
-
-    status.update(
-        label=f"Pipeline complete in {runtime['total_duration_ms']} ms",
-        state="complete",
-        expanded=False,
-    )
+    status.update(label=f"Pipeline complete in {runtime['total_duration_ms']} ms", state="complete", expanded=False)
 
 
-def render_stage_cards(runtime):
-    stages = runtime["stages"]
-    if not stages:
-        return
-
-    columns_per_row = 3
-    for row_start in range(0, len(stages), columns_per_row):
-        row_stages = stages[row_start : row_start + columns_per_row]
-        row_columns = st.columns(columns_per_row, gap="small")
-
-        for index, stage in enumerate(row_stages):
-            meta_parts = []
+def render_pipeline(runtime):
+    stages = runtime.get("stages", [])
+    for start in range(0, len(stages), 3):
+        cols = st.columns(3, gap="small")
+        for idx, stage in enumerate(stages[start : start + 3]):
+            meta = []
             for key, value in stage.items():
-                if key in {"stage", "detail"}:
-                    continue
-                label = key.replace("_", " ").title()
-                meta_parts.append(f"{label}: {value}")
-
-            meta_html = "<br>".join(meta_parts)
-            card_html = (
-                '<div class="pipeline-card">'
-                f'<div class="pipeline-stage">{stage["stage"]}</div>'
-                f'<div class="pipeline-detail">{stage["detail"]}</div>'
-                f'<div class="pipeline-meta">{meta_html}</div>'
-                "</div>"
+                if key not in {"stage", "detail"}:
+                    meta.append(f"{key.replace('_', ' ').title()}: {value}")
+            cols[idx].markdown(
+                (
+                    '<div class="pipe-card">'
+                    f'<div class="pipe-stage">{stage["stage"]}</div>'
+                    f'<div class="pipe-detail">{stage["detail"]}</div>'
+                    f'<div class="pipe-meta">{"<br>".join(meta)}</div>'
+                    "</div>"
+                ),
+                unsafe_allow_html=True,
             )
-            row_columns[index].markdown(card_html, unsafe_allow_html=True)
-
-
-def load_predictions_for_bridge(bridge_id):
-    bridge_path = project_root / "data" / "bridges" / bridge_id / "predictions.csv"
-    if bridge_path.exists():
-        frame = pd.read_csv(bridge_path)
-    else:
-        frame, _ = run_bridge_inference(bridge_id, return_trace=True)
-    frame["timestamp"] = pd.to_datetime(frame["timestamp"], errors="coerce")
-    return frame.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
 
 
 inject_theme()
-ensure_bridge_assets()
-
-summary_df = load_bridge_summary()
-metrics = load_metrics()
+ensure_assets()
+summary = load_summary()
+metrics = load_json(metrics_path)
+xai_summary = load_json(xai_summary_path)
 
 if "selected_bridge_id" not in st.session_state:
-    st.session_state.selected_bridge_id = summary_df.iloc[0]["bridge_id"]
+    st.session_state.selected_bridge_id = summary.iloc[0]["bridge_id"]
 
-render_header(summary_df, metrics)
+st.markdown(
+    """
+    <div class="hero">
+        <div class="kicker">Bridge Digital Twin Command Layer</div>
+        <div class="title">Explainable multimodal anomaly intelligence for bridge fleets</div>
+        <div class="copy">
+            Select a bridge to replay the inference pipeline, inspect local anomaly drivers, and analyze deformation
+            behavior through advanced InSAR products including interferograms, heatmaps, and coherence maps.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-left, right = st.columns([1.45, 0.85], gap="large")
+cards = st.columns(4, gap="small")
+metric_card(cards[0], "Fleet Bridges", int(summary["bridge_id"].nunique()), "Registered bridge twins on the fleet map.")
+metric_card(cards[1], "Open Anomalies", int(summary["anomaly_count"].sum()), "Events above the calibrated threshold.")
+metric_card(cards[2], "Peak Fleet Risk", f"{float(summary['max_probability'].max()):.3f}", "Highest anomaly probability in the fleet.")
+metric_card(cards[3], "Scoring Engine", metrics.get("model_name", "ensemble"), "Stacked spatiotemporal ensemble with XAI.")
 
-with left:
-    st.markdown('<div class="panel-shell"><div class="section-title">Fleet Risk Map</div>', unsafe_allow_html=True)
-    fleet_map = build_fleet_map(summary_df, st.session_state.selected_bridge_id)
-    selection_payload = None
+top_left, top_right = st.columns([1.45, 0.85], gap="large")
+with top_left:
+    section("Fleet Risk Map")
+    selection = None
     try:
-        selection_payload = st.plotly_chart(
-            fleet_map,
-            use_container_width=True,
-            key="fleet_map",
-            on_select="rerun",
-            selection_mode=("points",),
-        )
+        selection = st.plotly_chart(build_map(summary, st.session_state.selected_bridge_id), use_container_width=True, key="fleet_map", on_select="rerun", selection_mode=("points",))
     except TypeError:
-        st.plotly_chart(fleet_map, use_container_width=True, key="fleet_map_static")
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.plotly_chart(build_map(summary, st.session_state.selected_bridge_id), use_container_width=True, key="fleet_map_static")
+with top_right:
+    section("Model Diagnostics")
+    d1 = st.columns(2, gap="small")
+    metric_card(d1[0], "F1", f"{metrics.get('f1', 0):.3f}", "Balanced anomaly retrieval performance.")
+    metric_card(d1[1], "Precision", f"{metrics.get('precision', 0):.3f}", "Correctness of anomaly alerts.")
+    d2 = st.columns(2, gap="small")
+    metric_card(d2[0], "Recall", f"{metrics.get('recall', 0):.3f}", "Share of true anomalies recovered.")
+    metric_card(d2[1], "ROC AUC", f"{metrics.get('roc_auc', 0):.3f}" if metrics.get("roc_auc") is not None else "N/A", "Ranking quality between normal and abnormal states.")
+    st.caption(f"Threshold: {metrics.get('threshold', 0):.4f} | Feature count: {metrics.get('feature_count', 0)}")
 
-with right:
-    st.markdown('<div class="panel-shell"><div class="section-title">Model Diagnostics</div>', unsafe_allow_html=True)
-    st.metric("Model F1", f"{metrics.get('f1', 0):.3f}")
-    st.metric("Precision", f"{metrics.get('precision', 0):.3f}")
-    st.metric("Recall", f"{metrics.get('recall', 0):.3f}")
-    st.metric("ROC AUC", f"{metrics.get('roc_auc', 0):.3f}" if metrics.get("roc_auc") is not None else "N/A")
-    st.caption(f"Threshold: {metrics.get('threshold', 0):.4f}")
-    st.caption(f"Feature count: {metrics.get('feature_count', 0)}")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-if isinstance(selection_payload, dict):
-    points = selection_payload.get("selection", {}).get("points", [])
+if isinstance(selection, dict):
+    points = selection.get("selection", {}).get("points", [])
     if points:
-        selected_payload = points[0].get("customdata")
-        if isinstance(selected_payload, (list, tuple)) and selected_payload:
-            st.session_state.selected_bridge_id = selected_payload[0]
-        else:
-            point_index = int(points[0].get("point_index", 0))
-            if 0 <= point_index < len(summary_df):
-                st.session_state.selected_bridge_id = summary_df.iloc[point_index]["bridge_id"]
+        payload = points[0].get("customdata")
+        if isinstance(payload, (list, tuple)) and payload:
+            st.session_state.selected_bridge_id = payload[0]
 
-bridge_options = summary_df["bridge_id"].tolist()
+bridge_options = summary["bridge_id"].tolist()
 selected_index = bridge_options.index(st.session_state.selected_bridge_id)
-selected_bridge_id = st.selectbox(
+bridge_id = st.selectbox(
     "Selected bridge",
     options=bridge_options,
     index=selected_index,
-    format_func=lambda bridge_id: summary_df.loc[
-        summary_df["bridge_id"] == bridge_id, "bridge_name"
-    ].iloc[0],
+    format_func=lambda value: summary.loc[summary["bridge_id"] == value, "bridge_name"].iloc[0],
 )
-st.session_state.selected_bridge_id = selected_bridge_id
+st.session_state.selected_bridge_id = bridge_id
+selected = summary.loc[summary["bridge_id"] == bridge_id].iloc[0]
+st.caption(f"Bridge focus: {selected['bridge_name']} | {selected['city']} | {selected['region']} | peak probability {selected['max_probability']:.3f}")
 
-selected_row = summary_df.loc[summary_df["bridge_id"] == selected_bridge_id].iloc[0]
-st.caption(
-    f"Bridge focus: {selected_row['bridge_name']} | {selected_row['city']} | "
-    f"peak probability {selected_row['max_probability']:.3f}"
-)
-
-bridge_changed = st.session_state.get("_last_loaded_bridge") != selected_bridge_id
-rerun_requested = st.button("Replay processing pipeline", type="primary")
-
-if bridge_changed or rerun_requested:
-    pred_df, runtime = run_bridge_inference(selected_bridge_id, return_trace=True)
-    st.session_state["_last_loaded_bridge"] = selected_bridge_id
+bridge_changed = st.session_state.get("_last_loaded_bridge") != bridge_id
+rerun = st.button("Replay processing pipeline", type="primary")
+if bridge_changed or rerun:
+    pred_df, runtime = run_bridge_inference(bridge_id, return_trace=True)
+    st.session_state["_last_loaded_bridge"] = bridge_id
     st.session_state["_last_runtime"] = runtime
     st.session_state["_last_pred_df"] = pred_df
-    animate_runtime_trace(runtime)
+    animate_runtime(runtime)
 else:
     runtime = st.session_state.get("_last_runtime")
     pred_df = st.session_state.get("_last_pred_df")
     if pred_df is None or runtime is None:
-        pred_df, runtime = run_bridge_inference(selected_bridge_id, return_trace=True)
+        pred_df, runtime = run_bridge_inference(bridge_id, return_trace=True)
         st.session_state["_last_runtime"] = runtime
         st.session_state["_last_pred_df"] = pred_df
 
 pred_df["timestamp"] = pd.to_datetime(pred_df["timestamp"], errors="coerce")
 pred_df = pred_df.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
 
-st.markdown('<div class="panel-shell"><div class="section-title">Runtime Pipeline</div>', unsafe_allow_html=True)
-render_stage_cards(runtime)
-st.markdown("</div>", unsafe_allow_html=True)
+section("Runtime Pipeline")
+render_pipeline(runtime)
 
-st.markdown('<div class="panel-shell"><div class="section-title">3D Digital Twin</div>', unsafe_allow_html=True)
-st.plotly_chart(
-    build_bridge_3d_figure(pred_df, selected_row["bridge_name"]),
-    use_container_width=True,
-)
-st.markdown("</div>", unsafe_allow_html=True)
+section("3D Digital Twin")
+st.plotly_chart(build_bridge_figure(pred_df, selected["bridge_name"]), use_container_width=True)
 
-bridge_dir = project_root / "data" / "bridges" / selected_bridge_id
+bridge_dir = project_root / "data" / "bridges" / bridge_id
 gnss_file = bridge_dir / "gnss_raw.csv"
 insar_file = bridge_dir / "insar_timeseries.csv"
 sensor_file = bridge_dir / "sensor_data.csv"
+mask_meta_file = bridge_dir / "insar_mask_metadata.csv"
+local_xai_file = bridge_dir / "xai_top_factors.csv"
 
-tabs = st.tabs(["Telemetry", "InSAR Vision", "Event Ledger"])
+tabs = st.tabs(["Telemetry", "InSAR Intelligence", "Explainability", "Event Ledger"])
 
 with tabs[0]:
-    telemetry_left, telemetry_right = st.columns(2, gap="large")
-
+    row = st.columns(2, gap="large")
     if gnss_file.exists():
         gnss = pd.read_csv(gnss_file)
         gnss["timestamp"] = pd.to_datetime(gnss["timestamp"], errors="coerce")
         gnss = gnss.dropna(subset=["timestamp"])
-        telemetry_left.plotly_chart(
-            build_timeseries_figure(
-                gnss,
-                ["x", "y", "z"],
-                "GNSS Coordinate Stream",
-                ["#4dd0e1", "#90caf9", "#ffb86b"],
-            ),
-            use_container_width=True,
-        )
-
+        row[0].plotly_chart(line_chart(gnss, ["x", "y", "z"], "GNSS coordinate stream", ["#4dd0e1", "#90caf9", "#ffb86b"]), use_container_width=True)
     if insar_file.exists():
         insar = pd.read_csv(insar_file)
         insar["timestamp"] = pd.to_datetime(insar["timestamp"], errors="coerce")
         insar = insar.dropna(subset=["timestamp"])
-        telemetry_right.plotly_chart(
-            build_timeseries_figure(
-                insar,
-                ["los_displacement"],
-                "InSAR LOS Deformation",
-                ["#ff8a65"],
-            ),
-            use_container_width=True,
-        )
-
+        row[1].plotly_chart(line_chart(insar, ["los_displacement"], "InSAR LOS deformation", ["#ff8a65"]), use_container_width=True)
     if sensor_file.exists():
         sensor = pd.read_csv(sensor_file)
         sensor["timestamp"] = pd.to_datetime(sensor["timestamp"], errors="coerce")
         sensor = sensor.dropna(subset=["timestamp"])
-        sensor_columns = [
-            column
-            for column in [
-                "Strain_microstrain",
-                "Deflection_mm",
-                "Vibration_ms2",
-                "Tilt_deg",
-                "Temperature_C",
-                "Humidity_percent",
-            ]
-            if column in sensor.columns
-        ]
-        if sensor_columns:
-            st.plotly_chart(
-                build_timeseries_figure(
-                    sensor,
-                    sensor_columns,
-                    "Sensor Fusion Panel",
-                    ["#80cbc4", "#ffd54f", "#ef9a9a", "#b39ddb", "#81d4fa", "#ffcc80"],
-                ),
-                use_container_width=True,
-            )
+        cols = [c for c in ["Strain_microstrain", "Deflection_mm", "Vibration_ms2", "Tilt_deg", "Temperature_C", "Humidity_percent"] if c in sensor.columns]
+        if cols:
+            st.plotly_chart(line_chart(sensor, cols, "Sensor fusion panel", ["#80cbc4", "#ffd54f", "#ef9a9a", "#b39ddb", "#81d4fa", "#ffcc80"]), use_container_width=True)
 
 with tabs[1]:
-    mask_meta_file = bridge_dir / "insar_mask_metadata.csv"
+    insar = pd.DataFrame()
+    if insar_file.exists():
+        insar = pd.read_csv(insar_file)
+        insar["timestamp"] = pd.to_datetime(insar["timestamp"], errors="coerce")
+        insar = insar.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+    mask_meta = pd.DataFrame()
     if mask_meta_file.exists():
         mask_meta = pd.read_csv(mask_meta_file)
         if not mask_meta.empty:
             mask_meta["timestamp"] = pd.to_datetime(mask_meta["timestamp"], errors="coerce")
             mask_meta = mask_meta.sort_values("timestamp", na_position="last").reset_index(drop=True)
-            frame_index = st.slider("InSAR frame", 0, len(mask_meta) - 1, 0)
-            frame = mask_meta.iloc[frame_index]
-
-            image_col, mask_col, overlay_col = st.columns(3)
-            image_col.image(frame["image_path"], caption="SAR intensity frame", use_container_width=True)
-            mask_col.image(frame["mask_path"], caption="Predicted deformation mask", use_container_width=True)
-            overlay_col.image(frame["overlay_path"], caption="Mask composited over SAR", use_container_width=True)
-
-            st.caption(
-                f"Frame timestamp: {pd.to_datetime(frame['timestamp'])} | "
-                f"masked area ratio: {float(frame['mask_ratio']):.4f}"
-            )
+    if mask_meta.empty:
+        st.info("No InSAR products are available for the selected bridge.")
     else:
-        st.info("No InSAR image frames are available for the selected bridge.")
+        frame_idx = st.slider("InSAR frame", 0, len(mask_meta) - 1, 0)
+        frame = mask_meta.iloc[frame_idx]
+        selected_ts = pd.to_datetime(frame["timestamp"]) if pd.notna(frame["timestamp"]) else None
+        top = st.columns([1.4, 0.6], gap="large")
+        top[0].plotly_chart(insar_activity(mask_meta, insar, selected_ts), use_container_width=True)
+        metric_card(top[1], "Mask Ratio", f"{float(frame['mask_ratio']):.4f}", "Fraction of active deformation pixels.")
+        metric_card(top[1], "Deformation Energy", f"{float(frame.get('deformation_energy', 0.0)):.4f}", "Normalized deformation intensity.")
+        metric_card(top[1], "Mean Coherence", f"{float(frame.get('coherence_mean', 0.0)):.4f}", "Phase stability after extraction.")
+        img_a = st.columns(2, gap="small")
+        img_b = st.columns(2, gap="small")
+        img_a[0].image(frame["image_path"], caption="Amplitude image", use_container_width=True)
+        img_a[1].image(frame["interferogram_path"], caption="Interferogram", use_container_width=True)
+        img_b[0].image(frame["heatmap_path"], caption="Deformation heatmap", use_container_width=True)
+        img_b[1].image(frame["coherence_path"], caption="Coherence map", use_container_width=True)
+        st.image(frame["overlay_path"], caption="Segmented anomaly overlay", use_container_width=True)
 
 with tabs[2]:
+    global_xai = pd.DataFrame(xai_summary.get("global_feature_importance", []))
+    local_xai = pd.read_csv(local_xai_file) if local_xai_file.exists() else pd.DataFrame()
+    cols = st.columns(2, gap="large")
+    if not global_xai.empty:
+        cols[0].plotly_chart(bar_chart(global_xai.sort_values("importance_mean", ascending=True), "importance_mean", "feature", "Global feature importance", "#7dd3fc"), use_container_width=True)
+    else:
+        cols[0].info("Global explainability summary is not available.")
+    if not local_xai.empty:
+        local_xai = local_xai.copy()
+        local_xai["signed_feature"] = local_xai["feature"] + local_xai["impact"].map(lambda v: "  (+)" if v >= 0 else "  (-)")
+        cols[1].plotly_chart(bar_chart(local_xai.sort_values("impact", ascending=True), "impact", "signed_feature", "Local anomaly drivers", "#ff9f68"), use_container_width=True)
+        st.caption("Local explanation uses counterfactual feature ablation. Each bar shows how the top anomaly probability changes when that feature is replaced by the fleet reference value.")
+    else:
+        cols[1].info("Local explanation is not available for the selected bridge.")
+
+with tabs[3]:
     anomalies = pred_df[pred_df["anomaly"] == 1].copy()
     if anomalies.empty:
         st.write("No anomaly rows exceeded the runtime threshold for this bridge.")
     else:
-        show_columns = [
-            "timestamp",
-            "anomaly_probability",
-            "Vibration_Anomaly_Location",
-            "Localized_Strain_Hotspot",
-            "Deflection_mm",
-            "Displacement_mm",
-            "Vibration_ms2",
-            "Probability_of_Failure_PoF",
-            "Structural_Health_Index_SHI",
-        ]
-        show_columns = [column for column in show_columns if column in anomalies.columns]
-        st.dataframe(
-            anomalies[show_columns].sort_values("anomaly_probability", ascending=False).head(350),
-            use_container_width=True,
-        )
+        display_cols = [c for c in ["timestamp", "anomaly_probability", "Vibration_Anomaly_Location", "Localized_Strain_Hotspot", "Deflection_mm", "Displacement_mm", "Vibration_ms2", "Probability_of_Failure_PoF", "Structural_Health_Index_SHI"] if c in anomalies.columns]
+        st.dataframe(anomalies[display_cols].sort_values("anomaly_probability", ascending=False).head(350), use_container_width=True)

@@ -9,5 +9,87 @@
   "recall": 0.9436619718309859,
   "f1": 0.950354609929078,
   "average_precision": 0.9928038468114049,
-  "roc_auc": 0.9999230835159183
+  "roc_auc": 0.9999230835159183,
+  "xai_top_features": [
+    {
+      "feature": "Probability_of_Failure_PoF",
+      "importance_mean": 0.0107880608800342,
+      "importance_std": 5.551115123125783e-17
+    },
+    {
+      "feature": "Probability_of_Failure_PoF_ewm_12",
+      "importance_mean": 0.0068999401440874575,
+      "importance_std": 0.0014811167212792002
+    },
+    {
+      "feature": "Bridge_Mood_Meter",
+      "importance_mean": 0.006810379826765578,
+      "importance_std": 0.0014521564659859105
+    },
+    {
+      "feature": "Probability_of_Failure_PoF_roll_mean_6",
+      "importance_mean": 0.005377665039036361,
+      "importance_std": 0.003313953445531307
+    },
+    {
+      "feature": "Strain_microstrain_roll_mean_6",
+      "importance_mean": 0.0044582785448171736,
+      "importance_std": 0.0011106358903204471
+    },
+    {
+      "feature": "Estimated_Repair_Cost_USD_incremental",
+      "importance_mean": 0.0032884067499453218,
+      "importance_std": 0.0006661733875265178
+    },
+    {
+      "feature": "Structural_Health_Index_SHI_roll_mean_6",
+      "importance_mean": 0.00291858426473815,
+      "importance_std": 0.00106703881312607
+    },
+    {
+      "feature": "Probability_of_Failure_PoF_roll_std_12",
+      "importance_mean": 0.0029037913653299496,
+      "importance_std": 4.8074067159589095e-17
+    },
+    {
+      "feature": "Flood_Event_Flag",
+      "importance_mean": 0.002903791365329922,
+      "importance_std": 0.0
+    },
+    {
+      "feature": "failure_health_gap",
+      "importance_mean": 0.0029037913653298664,
+      "importance_std": 5.551115123125783e-17
+    },
+    {
+      "feature": "Modal_Frequency_Hz_ewm_12",
+      "importance_mean": 0.001794323909708656,
+      "importance_std": 0.0006405513341600671
+    },
+    {
+      "feature": "Displacement_mm_roll_mean_6",
+      "importance_mean": 0.0017943239097086006,
+      "importance_std": 0.0006405513341600991
+    },
+    {
+      "feature": "Water_Level_m",
+      "importance_mean": 0.0014245014245015397,
+      "importance_std": 4.8074067159589095e-17
+    },
+    {
+      "feature": "Simulated_Water_Flow_m3s",
+      "importance_mean": 0.001424501424501512,
+      "importance_std": 5.551115123125783e-17
+    },
+    {
+      "feature": "hour_sin",
+      "importance_mean": 0.0014245014245014842,
+      "importance_std": 4.8074067159589095e-17
+    },
+    {
+      "feature": "Modal_Frequency_Hz_roll_mean_6",
+      "importance_mean": 0.0010683760683762034,
+      "importance_std": 0.0006168272106726909
+    }
+  ]
 }

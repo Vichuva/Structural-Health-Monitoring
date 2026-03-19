@@ -30,6 +30,7 @@ BRIDGE_REGISTRY_PATH = BRIDGES_DIR / "bridge_registry.csv"
 BRIDGE_PREDICTIONS_PATH = BRIDGES_DIR / "bridge_predictions.csv"
 BRIDGE_MODEL_PATH = MODELS_DIR / "bridge_anomaly_model.pkl"
 BRIDGE_MODEL_METRICS_PATH = MODELS_DIR / "bridge_anomaly_metrics.json"
+BRIDGE_XAI_SUMMARY_PATH = MODELS_DIR / "bridge_xai_summary.json"
 
 # Domain thresholds
 GNSS_THRESHOLD_MM = 5

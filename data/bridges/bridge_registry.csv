@@ -1,0 +1,7 @@
+bridge_id,bridge_name,lat,lon,city,region
+bridge_alpha,Pacific Crown,37.8199,-122.4783,San Francisco,West
+bridge_beta,Sound Span,47.6205,-122.3493,Seattle,West
+bridge_gamma,Hudson Relay,40.7061,-73.9969,New York,Northeast
+bridge_delta,Lakeshore Axis,41.8789,-87.6359,Chicago,Midwest
+bridge_epsilon,Gulf Meridian,29.752,-95.3584,Houston,South
+bridge_zeta,Atlantic Veil,25.7634,-80.1918,Miami,South

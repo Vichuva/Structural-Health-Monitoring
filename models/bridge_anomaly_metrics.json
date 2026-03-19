@@ -1,0 +1,13 @@
+{
+  "model_name": "stacked_spatiotemporal_bridge_ensemble_v2",
+  "threshold": 0.9999017095889224,
+  "feature_count": 130,
+  "train_positive_rate": 0.01091342019974866,
+  "validation_positive_rate": 0.010953409441530391,
+  "test_positive_rate": 0.010956790123456791,
+  "precision": 0.9571428571428572,
+  "recall": 0.9436619718309859,
+  "f1": 0.950354609929078,
+  "average_precision": 0.9928038468114049,
+  "roc_auc": 0.9999230835159183
+}

@@ -1,6 +1,7 @@
 import json
 import sys
 import time
+from html import escape
 from pathlib import Path
 
 import numpy as np
@@ -45,9 +46,10 @@ def inject_theme():
         .kicker { color: #7dd3fc; font-size: .82rem; text-transform: uppercase; letter-spacing: .16rem; }
         .title { color: #f8fbff; font-size: 2.2rem; font-weight: 700; line-height: 1.04; margin-top: .25rem; }
         .copy { color: #b8cbdf; font-size: 1rem; margin-top: .45rem; }
-        .metric-card { padding: 1rem 1.1rem; min-height: 120px; }
+        .metric-card { padding: 1rem 1.1rem; min-height: 120px; display: flex; flex-direction: column; gap: .28rem; }
         .metric-label { color: #7f99b4; font-size: .8rem; text-transform: uppercase; letter-spacing: .08rem; }
-        .metric-value { color: #f7fbff; font-size: 1.65rem; font-weight: 700; margin-top: .3rem; }
+        .metric-value { color: #f7fbff; font-size: 1.65rem; font-weight: 700; margin-top: .3rem; line-height: 1.08; overflow-wrap: anywhere; }
+        .metric-value-compact { font-size: clamp(1.02rem, 1.35vw, 1.45rem); }
         .metric-copy { color: #9fb8ce; font-size: .88rem; margin-top: .35rem; line-height: 1.35; }
         .pipe-card { padding: 1rem; min-height: 190px; }
         .pipe-stage { color: #eff7ff; font-size: 1.02rem; font-weight: 700; margin-bottom: .35rem; }
@@ -95,13 +97,21 @@ def load_summary():
     return merged
 
 
+def format_model_name(name):
+    value = str(name or "ensemble").strip()
+    cleaned = value.replace("_", " ").replace("-", " ")
+    return " ".join(part.upper() if part.lower() == "xai" else part.capitalize() for part in cleaned.split())
+
+
 def metric_card(column, label, value, copy):
+    value_text = str(value)
+    value_class = "metric-value metric-value-compact" if len(value_text) > 20 else "metric-value"
     column.markdown(
         (
             '<div class="metric-card">'
-            f'<div class="metric-label">{label}</div>'
-            f'<div class="metric-value">{value}</div>'
-            f'<div class="metric-copy">{copy}</div>'
+            f'<div class="metric-label">{escape(str(label))}</div>'
+            f'<div class="{value_class}">{escape(value_text)}</div>'
+            f'<div class="metric-copy">{escape(str(copy))}</div>'
             "</div>"
         ),
         unsafe_allow_html=True,
@@ -391,7 +401,7 @@ cards = st.columns(4, gap="small")
 metric_card(cards[0], "Fleet Bridges", int(summary["bridge_id"].nunique()), "Registered bridge twins on the fleet map.")
 metric_card(cards[1], "Open Anomalies", int(summary["anomaly_count"].sum()), "Events above the calibrated threshold.")
 metric_card(cards[2], "Peak Fleet Risk", f"{float(summary['max_probability'].max()):.3f}", "Highest anomaly probability in the fleet.")
-metric_card(cards[3], "Scoring Engine", metrics.get("model_name", "ensemble"), "Stacked spatiotemporal ensemble with XAI.")
+metric_card(cards[3], "Scoring Engine", format_model_name(metrics.get("model_name", "ensemble")), "Stacked spatiotemporal ensemble with XAI.")
 
 top_left, top_right = st.columns([1.45, 0.85], gap="large")
 with top_left:

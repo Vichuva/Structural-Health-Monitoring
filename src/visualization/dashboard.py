@@ -266,7 +266,24 @@ def build_bridge_figure(pred_df, bridge_name):
     return figure
 
 
-def line_chart(frame, columns, title, colors, selected_timestamp=None):
+def prepare_gnss_demo_frame(frame):
+    required = {"timestamp", "x", "y", "z"}
+    if frame.empty or not required.issubset(frame.columns):
+        return pd.DataFrame()
+    gnss = frame[["timestamp", "x", "y", "z"]].copy()
+    gnss["timestamp"] = pd.to_datetime(gnss["timestamp"], errors="coerce")
+    gnss = gnss.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+    if gnss.empty:
+        return gnss
+    baseline = gnss.loc[0, ["x", "y", "z"]]
+    for axis in ["x", "y", "z"]:
+        gnss[f"{axis}_mm"] = (pd.to_numeric(gnss[axis], errors="coerce") - float(baseline[axis])) * 1000.0
+    gnss = gnss.dropna(subset=["x_mm", "y_mm", "z_mm"]).reset_index(drop=True)
+    gnss["total_mm"] = np.sqrt(gnss["x_mm"] ** 2 + gnss["y_mm"] ** 2 + gnss["z_mm"] ** 2)
+    return gnss
+
+
+def line_chart(frame, columns, title, colors, selected_timestamp=None, yaxis_title=None):
     figure = go.Figure()
     for column, color in zip(columns, colors):
         if column in frame.columns:
@@ -276,7 +293,10 @@ def line_chart(frame, columns, title, colors, selected_timestamp=None):
     figure.update_layout(
         title=title, height=320, margin={"l": 0, "r": 0, "t": 38, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={"color": "#eaf4ff"},
-        xaxis={"title": None}, yaxis={"title": None, "gridcolor": "rgba(158,193,220,0.12)"}, legend={"orientation": "h"},
+        xaxis={"title": None},
+        yaxis={"title": yaxis_title, "gridcolor": "rgba(158,193,220,0.12)"},
+        legend={"orientation": "h"},
+        hovermode="x unified",
     )
     return figure
 
@@ -448,14 +468,34 @@ with tabs[0]:
     row = st.columns(2, gap="large")
     if gnss_file.exists():
         gnss = pd.read_csv(gnss_file)
-        gnss["timestamp"] = pd.to_datetime(gnss["timestamp"], errors="coerce")
-        gnss = gnss.dropna(subset=["timestamp"])
-        row[0].plotly_chart(line_chart(gnss, ["x", "y", "z"], "GNSS coordinate stream", ["#4dd0e1", "#90caf9", "#ffb86b"]), use_container_width=True)
+        gnss_demo = prepare_gnss_demo_frame(gnss)
+        if gnss_demo.empty:
+            row[0].info("GNSS telemetry is unavailable for the selected bridge.")
+        else:
+            gnss_stats = row[0].columns(3, gap="small")
+            gnss_stats[0].metric("Samples", f"{len(gnss_demo):,}")
+            gnss_stats[1].metric("Peak 3D Drift", f"{gnss_demo['total_mm'].max():.1f} mm")
+            gnss_stats[2].metric("Vertical Span", f"{gnss_demo['z_mm'].max() - gnss_demo['z_mm'].min():.1f} mm")
+            row[0].plotly_chart(
+                line_chart(
+                    gnss_demo,
+                    ["x_mm", "y_mm", "z_mm"],
+                    "GNSS displacement stream",
+                    ["#4dd0e1", "#90caf9", "#ffb86b"],
+                    yaxis_title="Displacement (mm)",
+                ),
+                use_container_width=True,
+            )
+            row[0].caption("Offsets are relative to the first GNSS sample so micro-movements remain visible during the demo.")
+    else:
+        row[0].info("GNSS telemetry file is missing for the selected bridge.")
     if insar_file.exists():
         insar = pd.read_csv(insar_file)
         insar["timestamp"] = pd.to_datetime(insar["timestamp"], errors="coerce")
         insar = insar.dropna(subset=["timestamp"])
         row[1].plotly_chart(line_chart(insar, ["los_displacement"], "InSAR LOS deformation", ["#ff8a65"]), use_container_width=True)
+    else:
+        row[1].info("InSAR timeseries file is missing for the selected bridge.")
     if sensor_file.exists():
         sensor = pd.read_csv(sensor_file)
         sensor["timestamp"] = pd.to_datetime(sensor["timestamp"], errors="coerce")
@@ -463,6 +503,10 @@ with tabs[0]:
         cols = [c for c in ["Strain_microstrain", "Deflection_mm", "Vibration_ms2", "Tilt_deg", "Temperature_C", "Humidity_percent"] if c in sensor.columns]
         if cols:
             st.plotly_chart(line_chart(sensor, cols, "Sensor fusion panel", ["#80cbc4", "#ffd54f", "#ef9a9a", "#b39ddb", "#81d4fa", "#ffcc80"]), use_container_width=True)
+        else:
+            st.info("Sensor telemetry columns are not available for the selected bridge.")
+    else:
+        st.info("Sensor telemetry file is missing for the selected bridge.")
 
 with tabs[1]:
     insar = pd.DataFrame()

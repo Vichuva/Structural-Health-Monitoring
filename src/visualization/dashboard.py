@@ -442,7 +442,7 @@ sensor_file = bridge_dir / "sensor_data.csv"
 mask_meta_file = bridge_dir / "insar_mask_metadata.csv"
 local_xai_file = bridge_dir / "xai_top_factors.csv"
 
-tabs = st.tabs(["Telemetry", "InSAR Intelligence", "Explainability", "Event Ledger"])
+tabs = st.tabs(["Telemetry", "InSAR Intelligence", "Explainability", "Event Ledger", "AI Reports"])
 
 with tabs[0]:
     row = st.columns(2, gap="large")
@@ -450,7 +450,23 @@ with tabs[0]:
         gnss = pd.read_csv(gnss_file)
         gnss["timestamp"] = pd.to_datetime(gnss["timestamp"], errors="coerce")
         gnss = gnss.dropna(subset=["timestamp"])
-        row[0].plotly_chart(line_chart(gnss, ["x", "y", "z"], "GNSS coordinate stream", ["#4dd0e1", "#90caf9", "#ffb86b"]), use_container_width=True)
+        gnss = gnss.sort_values("timestamp")
+        gnss["dx"] = gnss["x"].diff().fillna(0)
+        gnss["dy"] = gnss["y"].diff().fillna(0)
+        gnss["dz"] = gnss["z"].diff().fillna(0)
+        gnss["horizontal_mm"] = np.sqrt(gnss["dx"]**2 + gnss["dy"]**2) * 1000
+    gnss["vertical_mm"] = gnss["dz"] * 1000
+    gnss["total_mm"] = np.sqrt(gnss["dx"]**2 + gnss["dy"]**2 + gnss["dz"]**2) * 1000
+    gnss["total_mm_smooth"] = gnss["total_mm"].rolling(5).mean()
+    row[0].plotly_chart(
+    line_chart(
+        gnss,
+        ["total_mm_smooth"],   # 👈 key fix
+        "GNSS Displacement (mm)",
+        ["#4dd0e1"]
+    ),
+    use_container_width=True
+)
     if insar_file.exists():
         insar = pd.read_csv(insar_file)
         insar["timestamp"] = pd.to_datetime(insar["timestamp"], errors="coerce")
@@ -518,3 +534,24 @@ with tabs[3]:
     else:
         display_cols = [c for c in ["timestamp", "anomaly_probability", "Vibration_Anomaly_Location", "Localized_Strain_Hotspot", "Deflection_mm", "Displacement_mm", "Vibration_ms2", "Probability_of_Failure_PoF", "Structural_Health_Index_SHI"] if c in anomalies.columns]
         st.dataframe(anomalies[display_cols].sort_values("anomaly_probability", ascending=False).head(350), use_container_width=True)
+
+with tabs[4]:
+    section("Generated Engineering Reports")
+    reports_dir = project_root / "reports"
+    if reports_dir.exists():
+        report_files = sorted(list(reports_dir.glob("*.md")), reverse=True)
+        if report_files:
+            report_names = [f.name for f in report_files]
+            selected_report = st.selectbox("Select Report to View", options=report_names)
+            
+            if selected_report:
+                report_path = reports_dir / selected_report
+                with open(report_path, "r", encoding="utf-8") as f:
+                    report_content = f.read()
+                
+                st.markdown("---")
+                st.markdown(report_content)
+        else:
+            st.info("No AI reports found in the reports/ directory. Run the pipeline with --run-agents to generate them.")
+    else:
+        st.info("Reports directory does not exist.")

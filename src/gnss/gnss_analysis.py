@@ -8,11 +8,30 @@ from src.utils.config import GNSS_ANALYSIS_PATH, GNSS_PROCESSED_PATH, GNSS_THRES
 
 def analyze_gnss_displacement(df):
     analysis = df.copy()
-    analysis["horizontal_mm"] = np.sqrt(analysis["dx"] ** 2 + analysis["dy"] ** 2) * 1000.0
-    analysis["vertical_mm"] = analysis["dz"] * 1000.0
+
+    # Ensure proper time order
+    analysis["timestamp"] = pd.to_datetime(analysis["timestamp"])
+    analysis = analysis.sort_values("timestamp")
+
+    # Compute displacements
+    analysis["horizontal_mm"] = np.sqrt(analysis["dx"]**2 + analysis["dy"]**2) * 1000
+    analysis["vertical_mm"] = analysis["dz"] * 1000
     analysis["total_mm"] = np.sqrt(
-        analysis["dx"] ** 2 + analysis["dy"] ** 2 + analysis["dz"] ** 2
-    ) * 1000.0
+        analysis["dx"]**2 + analysis["dy"]**2 + analysis["dz"]**2
+    ) * 1000
+
+    # Rolling smoothing (VERY IMPORTANT for visualization)
+    analysis["horizontal_mm_smooth"] = analysis["horizontal_mm"].rolling(window=5, min_periods=1).mean()
+    analysis["vertical_mm_smooth"] = analysis["vertical_mm"].rolling(window=5, min_periods=1).mean()
+    analysis["total_mm_smooth"] = analysis["total_mm"].rolling(window=5, min_periods=1).mean()
+
+    # Normalize (to avoid flat visualization if values are too small)
+    analysis["total_mm_norm"] = (
+        (analysis["total_mm"] - analysis["total_mm"].min()) /
+        (analysis["total_mm"].max() - analysis["total_mm"].min() + 1e-9)
+    )
+
+    # Threshold detection
     analysis["threshold_exceeded"] = (
         analysis["vertical_mm"].abs() >= GNSS_THRESHOLD_MM
     ).astype(int)
@@ -23,6 +42,10 @@ def analyze_gnss_displacement(df):
             "horizontal_mm",
             "vertical_mm",
             "total_mm",
+            "horizontal_mm_smooth",
+            "vertical_mm_smooth",
+            "total_mm_smooth",
+            "total_mm_norm",
             "threshold_exceeded",
         ]
     ]

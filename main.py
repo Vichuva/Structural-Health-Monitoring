@@ -63,12 +63,49 @@ def main():
         action="store_true",
         help="Skip Kaggle bridge model training pipeline",
     )
+    parser.add_argument(
+        "--run-agents", 
+        action="store_true", 
+        help="Run CrewAI agents after pipeline for analysis and reporting"
+    )
+    parser.add_argument(
+        "--llm-provider", 
+        default="openai",
+        choices=["openai", "groq", "grok"], 
+        help="LLM provider (default: openai)"
+    )
+    parser.add_argument(
+        "--api-key", 
+        help="API key for the selected provider (e.g. OPENAI_API_KEY)"
+    )
+    parser.add_argument(
+        "--llm-model", 
+        default=None,
+        help="LLM model name (default depends on provider)"
+    )
     args = parser.parse_args()
 
     summary = run_all_pipelines(
         generate_synthetic_data=not args.skip_generate,
         run_kaggle=not args.skip_kaggle,
     )
+    if args.run_agents:
+        try:
+            from src.agents.crew import kickoff_shm_crew
+            print("🚀 Running CrewAI SHM Agents...")
+            crew_result = kickoff_shm_crew(
+                summary, 
+                args.llm_provider, 
+                args.api_key if args.api_key else None,
+                args.llm_model
+            )
+            print("CrewAI completed:", crew_result)
+        except ImportError as e:
+            print(f"❌ CrewAI import failed: {e}")
+            print("Run 'pip install -r requirements.txt' or ensure dependencies are installed.")
+        except Exception as e:
+            print(f"❌ CrewAI failed: {e}")
+            print("💡 Tip: Pass --api-key or set appropriate environment variable (OPENAI_API_KEY, GROQ_API_KEY).")
     synthetic = summary["synthetic"]
 
     print("Structural Health Monitoring pipeline completed")

@@ -2,6 +2,7 @@ import json
 import pickle
 import time
 from pathlib import Path
+from typing import Any, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -245,7 +246,8 @@ def _generate_bridge_insar_images(bridge_df, bridge_dir):
 
     step = max(1, len(bridge_df) // sample_count)
     sampled = bridge_df.iloc[::step].head(sample_count).copy().reset_index(drop=True)
-    magnitudes = pd.to_numeric(sampled.get("Deflection_mm", 0.0), errors="coerce").fillna(0.0)
+    _deflection_col = sampled["Deflection_mm"] if "Deflection_mm" in sampled.columns else pd.Series(0.0, index=sampled.index)
+    magnitudes = pd.to_numeric(_deflection_col, errors="coerce").fillna(0.0)
 
     mag_min = float(magnitudes.min())
     mag_max = float(magnitudes.max())
@@ -346,12 +348,19 @@ def export_bridge_views(df):
         _generate_bridge_insar_images(subset, bridge_dir)
 
 
+def _get_col_series(df, col, default=0):
+    """Return df[col] as a numeric Series, or a constant Series of `default` if col is absent."""
+    if col in df.columns:
+        return pd.to_numeric(df[col], errors="coerce").fillna(default)
+    return pd.Series(default, index=df.index, dtype=float)
+
+
 def _build_target(df):
-    maintenance = pd.to_numeric(df.get("Maintenance_Alert", 0), errors="coerce").fillna(0)
-    anomaly_score = pd.to_numeric(df.get("Anomaly_Detection_Score", 0), errors="coerce").fillna(0)
-    flood_flag = pd.to_numeric(df.get("Flood_Event_Flag", 0), errors="coerce").fillna(0)
-    wind_flag = pd.to_numeric(df.get("High_Winds_Storms", 0), errors="coerce").fillna(0)
-    probability_of_failure = pd.to_numeric(df.get("Probability_of_Failure_PoF", 0), errors="coerce").fillna(0)
+    maintenance = _get_col_series(df, "Maintenance_Alert")
+    anomaly_score = _get_col_series(df, "Anomaly_Detection_Score")
+    flood_flag = _get_col_series(df, "Flood_Event_Flag")
+    wind_flag = _get_col_series(df, "High_Winds_Storms")
+    probability_of_failure = _get_col_series(df, "Probability_of_Failure_PoF")
     return (
         (maintenance > 0)
         | (anomaly_score >= 0.8)
@@ -361,6 +370,9 @@ def _build_target(df):
 
 
 def _select_features(df):
+    # Exclude direct target inputs (leakage) and future-look-ahead columns.
+    # NOTE: Flood_Event_Flag and High_Winds_Storms are kept as features because
+    # the trained model was fitted with them. Retrain to exclude them as leakage.
     leakage_columns = {
         "timestamp",
         "Maintenance_Alert",
@@ -382,8 +394,13 @@ def _optimal_threshold(y_true, probabilities):
     return float(thresholds[best_index])
 
 
-def _build_reference_values(feature_frame):
-    reference_values = {}
+def _elapsed_ms(start: float) -> float:
+    """Return elapsed milliseconds since *start* as a plain float (avoids round() overload issues)."""
+    return float(round((time.perf_counter() - start) * 1000.0, 2))
+
+
+def _build_reference_values(feature_frame) -> dict[str, Optional[float | str]]:
+    reference_values: dict[str, Optional[float | str]] = {}
     for column in feature_frame.columns:
         series = feature_frame[column]
         if pd.api.types.is_numeric_dtype(series):
@@ -502,7 +519,7 @@ def _build_model_pipeline(feature_frame):
                     min_samples_leaf=2,
                     class_weight="balanced_subsample",
                     random_state=RANDOM_SEED,
-                    n_jobs=-1,
+                    n_jobs=1,
                 ),
             ),
             (
@@ -512,7 +529,7 @@ def _build_model_pipeline(feature_frame):
                     min_samples_leaf=2,
                     class_weight="balanced_subsample",
                     random_state=RANDOM_SEED,
-                    n_jobs=-1,
+                    n_jobs=1,
                 ),
             ),
         ],
@@ -524,7 +541,7 @@ def _build_model_pipeline(feature_frame):
         ),
         stack_method="predict_proba",
         passthrough=False,
-        n_jobs=-1,
+        n_jobs=1,
     )
 
     return Pipeline(steps=[("preprocessor", preprocessor), ("model", ensemble_model)])
@@ -566,7 +583,7 @@ def train_bridge_anomaly_model(df):
     test_probs = final_pipeline.predict_proba(x_test)[:, 1]
     test_pred = (test_probs >= threshold).astype(int)
 
-    metrics = {
+    metrics: dict[str, Any] = {
         "model_name": MODEL_NAME,
         "threshold": threshold,
         "feature_count": int(len(feature_columns)),
@@ -726,7 +743,7 @@ def run_bridge_inference(bridge_id, return_trace=False):
         {
             "stage": "Data Intake",
             "detail": "Loaded bridge digital twin source frame and aligned timestamps.",
-            "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+            "duration_ms": _elapsed_ms(start),
             "rows": int(len(bridge_df)),
         }
     )
@@ -737,7 +754,7 @@ def run_bridge_inference(bridge_id, return_trace=False):
         {
             "stage": "Modal Sync",
             "detail": "Bound GNSS, InSAR, and sensor telemetry streams to the selected bridge.",
-            "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+            "duration_ms": _elapsed_ms(start),
             **modality_counts,
         }
     )
@@ -749,7 +766,7 @@ def run_bridge_inference(bridge_id, return_trace=False):
         {
             "stage": "Feature Synthesis",
             "detail": "Generated temporal deltas, rolling statistics, and multimodal interaction features.",
-            "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+            "duration_ms": _elapsed_ms(start),
             "feature_count": int(len(feature_columns)),
         }
     )
@@ -760,7 +777,7 @@ def run_bridge_inference(bridge_id, return_trace=False):
         {
             "stage": "Ensemble Scoring",
             "detail": f"Scored the bridge with {model_name} and applied the tuned anomaly threshold.",
-            "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+            "duration_ms": _elapsed_ms(start),
             "anomaly_count": int(predictions["anomaly"].sum()),
             "max_probability": float(predictions["anomaly_probability"].max()),
         }
@@ -783,7 +800,7 @@ def run_bridge_inference(bridge_id, return_trace=False):
         {
             "stage": "Explainability",
             "detail": "Resolved the strongest local anomaly drivers with counterfactual feature ablation.",
-            "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+            "duration_ms": _elapsed_ms(start),
             "top_drivers": int(len(local_xai)),
         }
     )
@@ -798,7 +815,7 @@ def run_bridge_inference(bridge_id, return_trace=False):
         {
             "stage": "Spatial Projection",
             "detail": "Projected high-risk events onto bridge deck, tower, cable, and pier zones.",
-            "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+            "duration_ms": _elapsed_ms(start),
             "hotspot_zones": hotspot_count,
         }
     )
@@ -806,12 +823,12 @@ def run_bridge_inference(bridge_id, return_trace=False):
     output_path = bridge_dir / "predictions.csv"
     predictions.to_csv(output_path, index=False)
 
-    runtime = {
+    runtime: dict[str, Any] = {
         "bridge_id": bridge_id,
         "model_name": model_name,
         "threshold": float(threshold),
         "local_xai_path": str(local_xai_path),
-        "total_duration_ms": round((time.perf_counter() - total_start) * 1000, 2),
+        "total_duration_ms": _elapsed_ms(total_start),
         "stages": stage_trace,
     }
 

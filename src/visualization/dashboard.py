@@ -20,6 +20,14 @@ registry_path = project_root / "data" / "bridges" / "bridge_registry.csv"
 predictions_path = project_root / "data" / "bridges" / "bridge_predictions.csv"
 metrics_path = project_root / "models" / "bridge_anomaly_metrics.json"
 xai_summary_path = project_root / "models" / "bridge_xai_summary.json"
+path_columns = [
+    "image_path",
+    "mask_path",
+    "overlay_path",
+    "interferogram_path",
+    "heatmap_path",
+    "coherence_path",
+]
 
 
 def inject_theme():
@@ -66,6 +74,35 @@ def load_json(path):
         return {}
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def resolve_project_asset_path(raw_path):
+    if pd.isna(raw_path) or not raw_path:
+        return raw_path
+
+    raw_text = str(raw_path)
+    candidate = Path(raw_text)
+    if candidate.exists():
+        return str(candidate)
+
+    normalized = raw_text.replace("\\", "/")
+    marker = "/data/"
+    if marker in normalized:
+        relative_part = normalized.split(marker, 1)[1]
+        return str(project_root / "data" / Path(relative_part))
+
+    return raw_text
+
+
+def normalize_asset_paths(frame):
+    if frame.empty:
+        return frame
+
+    normalized = frame.copy()
+    for column in path_columns:
+        if column in normalized.columns:
+            normalized[column] = normalized[column].map(resolve_project_asset_path)
+    return normalized
 
 
 def ensure_assets():
@@ -490,6 +527,7 @@ with tabs[1]:
     if mask_meta_file.exists():
         mask_meta = pd.read_csv(mask_meta_file)
         if not mask_meta.empty:
+            mask_meta = normalize_asset_paths(mask_meta)
             mask_meta["timestamp"] = pd.to_datetime(mask_meta["timestamp"], errors="coerce")
             mask_meta = mask_meta.sort_values("timestamp", na_position="last").reset_index(drop=True)
     if mask_meta.empty:

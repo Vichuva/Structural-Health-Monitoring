@@ -714,7 +714,7 @@ def _collect_runtime_modalities(bridge_dir):
     return modality_counts
 
 
-def run_bridge_inference(bridge_id, return_trace=False):
+def run_bridge_inference(bridge_id, return_trace=False, progress_callback=None):
     bridge_dir = BRIDGES_DIR / bridge_id
     source_path = bridge_dir / "source_dataset.csv"
     if not source_path.exists():
@@ -735,53 +735,63 @@ def run_bridge_inference(bridge_id, return_trace=False):
     stage_trace = []
     total_start = time.perf_counter()
 
+    def emit_progress(stage_payload):
+        if progress_callback is not None:
+            progress_callback(
+                {
+                    "stage": stage_payload.get("stage"),
+                    "detail": stage_payload.get("detail"),
+                    "meta": {key: value for key, value in stage_payload.items() if key not in {"stage", "detail", "duration_ms"}},
+                }
+            )
+
     start = time.perf_counter()
     bridge_df = pd.read_csv(source_path)
     bridge_df["timestamp"] = pd.to_datetime(bridge_df["timestamp"], errors="coerce")
     bridge_df = bridge_df.dropna(subset=["timestamp"]).reset_index(drop=True)
-    stage_trace.append(
-        {
-            "stage": "Data Intake",
-            "detail": "Loaded bridge digital twin source frame and aligned timestamps.",
-            "duration_ms": _elapsed_ms(start),
-            "rows": int(len(bridge_df)),
-        }
-    )
+    data_intake_stage = {
+        "stage": "Data Intake",
+        "detail": "Loaded bridge digital twin source frame and aligned timestamps.",
+        "duration_ms": _elapsed_ms(start),
+        "rows": int(len(bridge_df)),
+    }
+    stage_trace.append(data_intake_stage)
+    emit_progress(data_intake_stage)
 
     start = time.perf_counter()
     modality_counts = _collect_runtime_modalities(bridge_dir)
-    stage_trace.append(
-        {
-            "stage": "Modal Sync",
-            "detail": "Bound GNSS, InSAR, and sensor telemetry streams to the selected bridge.",
-            "duration_ms": _elapsed_ms(start),
-            **modality_counts,
-        }
-    )
+    modal_sync_stage = {
+        "stage": "Modal Sync",
+        "detail": "Bound GNSS, InSAR, and sensor telemetry streams to the selected bridge.",
+        "duration_ms": _elapsed_ms(start),
+        **modality_counts,
+    }
+    stage_trace.append(modal_sync_stage)
+    emit_progress(modal_sync_stage)
 
     start = time.perf_counter()
     feature_frame = engineer_bridge_features(bridge_df)
     feature_columns = _select_features(feature_frame)
-    stage_trace.append(
-        {
-            "stage": "Feature Synthesis",
-            "detail": "Generated temporal deltas, rolling statistics, and multimodal interaction features.",
-            "duration_ms": _elapsed_ms(start),
-            "feature_count": int(len(feature_columns)),
-        }
-    )
+    feature_stage = {
+        "stage": "Feature Synthesis",
+        "detail": "Generated temporal deltas, rolling statistics, and multimodal interaction features.",
+        "duration_ms": _elapsed_ms(start),
+        "feature_count": int(len(feature_columns)),
+    }
+    stage_trace.append(feature_stage)
+    emit_progress(feature_stage)
 
     start = time.perf_counter()
     predictions = generate_predictions(bridge_df, model_pipeline=model_pipeline, threshold=threshold)
-    stage_trace.append(
-        {
-            "stage": "Ensemble Scoring",
-            "detail": f"Scored the bridge with {model_name} and applied the tuned anomaly threshold.",
-            "duration_ms": _elapsed_ms(start),
-            "anomaly_count": int(predictions["anomaly"].sum()),
-            "max_probability": float(predictions["anomaly_probability"].max()),
-        }
-    )
+    scoring_stage = {
+        "stage": "Ensemble Scoring",
+        "detail": f"Scored the bridge with {model_name} and applied the tuned anomaly threshold.",
+        "duration_ms": _elapsed_ms(start),
+        "anomaly_count": int(predictions["anomaly"].sum()),
+        "max_probability": float(predictions["anomaly_probability"].max()),
+    }
+    stage_trace.append(scoring_stage)
+    emit_progress(scoring_stage)
 
     start = time.perf_counter()
     engineered_frame = engineer_bridge_features(bridge_df)
@@ -796,14 +806,14 @@ def run_bridge_inference(bridge_id, return_trace=False):
     )
     local_xai_path = bridge_dir / "xai_top_factors.csv"
     local_xai.to_csv(local_xai_path, index=False)
-    stage_trace.append(
-        {
-            "stage": "Explainability",
-            "detail": "Resolved the strongest local anomaly drivers with counterfactual feature ablation.",
-            "duration_ms": _elapsed_ms(start),
-            "top_drivers": int(len(local_xai)),
-        }
-    )
+    explainability_stage = {
+        "stage": "Explainability",
+        "detail": "Resolved the strongest local anomaly drivers with counterfactual feature ablation.",
+        "duration_ms": _elapsed_ms(start),
+        "top_drivers": int(len(local_xai)),
+    }
+    stage_trace.append(explainability_stage)
+    emit_progress(explainability_stage)
 
     start = time.perf_counter()
     hotspot_count = int(
@@ -811,14 +821,14 @@ def run_bridge_inference(bridge_id, return_trace=False):
         if "Vibration_Anomaly_Location" in predictions.columns
         else 0
     )
-    stage_trace.append(
-        {
-            "stage": "Spatial Projection",
-            "detail": "Projected high-risk events onto bridge deck, tower, cable, and pier zones.",
-            "duration_ms": _elapsed_ms(start),
-            "hotspot_zones": hotspot_count,
-        }
-    )
+    spatial_stage = {
+        "stage": "Spatial Projection",
+        "detail": "Projected high-risk events onto bridge deck, tower, cable, and pier zones.",
+        "duration_ms": _elapsed_ms(start),
+        "hotspot_zones": hotspot_count,
+    }
+    stage_trace.append(spatial_stage)
+    emit_progress(spatial_stage)
 
     output_path = bridge_dir / "predictions.csv"
     predictions.to_csv(output_path, index=False)

@@ -1,6 +1,6 @@
 {
   "model_name": "stacked_spatiotemporal_bridge_ensemble_v2",
-  "threshold": 0.9998999829083811,
+  "threshold": 0.9998997569722896,
   "feature_count": 130,
   "train_positive_rate": 0.01091342019974866,
   "validation_positive_rate": 0.010953409441530391,
@@ -8,88 +8,88 @@
   "precision": 0.9571428571428572,
   "recall": 0.9436619718309859,
   "f1": 0.950354609929078,
-  "average_precision": 0.9925998131272984,
-  "roc_auc": 0.9999208859020875,
+  "average_precision": 0.9924016934630212,
+  "roc_auc": 0.9999186882882565,
   "xai_top_features": [
     {
       "feature": "Probability_of_Failure_PoF",
-      "importance_mean": 0.010788060880034117,
-      "importance_std": 4.8074067159589095e-17
+      "importance_mean": 0.009363559455532633,
+      "importance_std": 5.551115123125783e-17
     },
     {
       "feature": "Probability_of_Failure_PoF_ewm_12",
-      "importance_mean": 0.006899940144087374,
-      "importance_std": 0.0014811167212792483
+      "importance_mean": 0.0054754387195858345,
+      "importance_std": 0.0014811167212792323
     },
     {
       "feature": "Bridge_Mood_Meter",
-      "importance_mean": 0.006810379826765578,
-      "importance_std": 0.0014521564659858808
+      "importance_mean": 0.005117061197962958,
+      "importance_std": 0.0010583562691551239
     },
     {
       "feature": "Probability_of_Failure_PoF_roll_mean_6",
-      "importance_mean": 0.005377665039036278,
-      "importance_std": 0.0033139534455312886
+      "importance_mean": 0.00432298609974191,
+      "importance_std": 0.0029100955080766395
     },
     {
       "feature": "Strain_microstrain_roll_mean_6",
-      "importance_mean": 0.004458278544817007,
-      "importance_std": 0.001110635890320448
-    },
-    {
-      "feature": "Estimated_Repair_Cost_USD_incremental",
-      "importance_mean": 0.003288406749945183,
-      "importance_std": 0.0006661733875264696
-    },
-    {
-      "feature": "Structural_Health_Index_SHI_roll_mean_6",
-      "importance_mean": 0.0029185842647380944,
-      "importance_std": 0.0010670388131261092
+      "importance_mean": 0.0030337771203155783,
+      "importance_std": 0.0011106358903204476
     },
     {
       "feature": "Flood_Event_Flag",
-      "importance_mean": 0.0029037913653298386,
-      "importance_std": 4.8074067159589095e-17
+      "importance_mean": 0.0030177514792898985,
+      "importance_std": 9.614813431917819e-17
     },
     {
-      "feature": "failure_health_gap",
-      "importance_mean": 0.0029037913653298386,
-      "importance_std": 4.8074067159589095e-17
+      "feature": "Estimated_Repair_Cost_USD_incremental",
+      "importance_mean": 0.002633136094674582,
+      "importance_std": 0.0006661733875265338
+    },
+    {
+      "feature": "Structural_Health_Index_SHI_roll_mean_6",
+      "importance_mean": 0.0014940828402366657,
+      "importance_std": 0.0010670388131260302
     },
     {
       "feature": "Probability_of_Failure_PoF_roll_std_12",
-      "importance_mean": 0.002903791365329783,
+      "importance_mean": 0.0014792899408283544,
+      "importance_std": 0.0
+    },
+    {
+      "feature": "Temperature_C",
+      "importance_mean": 0.0014792899408283544,
+      "importance_std": 7.850462293418876e-17
+    },
+    {
+      "feature": "failure_health_gap",
+      "importance_mean": 0.0014792899408283267,
       "importance_std": 4.8074067159589095e-17
-    },
-    {
-      "feature": "Modal_Frequency_Hz_ewm_12",
-      "importance_mean": 0.0017943239097085728,
-      "importance_std": 0.0006405513341601151
-    },
-    {
-      "feature": "Displacement_mm_roll_mean_6",
-      "importance_mean": 0.0017943239097085173,
-      "importance_std": 0.000640551334160083
     },
     {
       "feature": "Soil_Saturation_percent",
-      "importance_mean": 0.001438198553583181,
-      "importance_std": 0.0010267366497868355
+      "importance_mean": 0.001109467455621238,
+      "importance_std": 0.0006405513341600509
     },
     {
-      "feature": "Dynamic_Load_Distribution_percent_roll_std_12",
-      "importance_mean": 0.0014245014245014842,
-      "importance_std": 4.8074067159589095e-17
+      "feature": "Modal_Frequency_Hz_ewm_12",
+      "importance_mean": 0.0007396449704141494,
+      "importance_std": 0.0007396449704142606
     },
     {
-      "feature": "hour_sin",
-      "importance_mean": 0.0014245014245014842,
-      "importance_std": 4.8074067159589095e-17
+      "feature": "dayofweek",
+      "importance_mean": 0.00036982248520711636,
+      "importance_std": 0.000640551334160051
     },
     {
-      "feature": "Soil_Settlement_mm",
-      "importance_mean": 0.0014245014245014564,
-      "importance_std": 0.0
+      "feature": "Displacement_mm_roll_mean_6",
+      "importance_mean": 0.00036982248520711636,
+      "importance_std": 0.000640551334160051
+    },
+    {
+      "feature": "bridge_age_index",
+      "importance_mean": 0.0003698224852070886,
+      "importance_std": 0.000640551334160131
     }
   ]
 }

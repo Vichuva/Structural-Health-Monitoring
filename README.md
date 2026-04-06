@@ -64,19 +64,32 @@ python main.py --run-agents --llm-provider openai --api-key $env:OPENAI_API_KEY
   3. **Report Writer** → Creates Markdown report
 - **Output:** `reports/shm_report_YYYYMMDD_HHMMSS.md`
 
-### 6. Launch interactive dashboard
-```powershell
-streamlit run src/visualization/dashboard.py
+### 6. Launch the production web app
+Backend:
+```bash
+.venv/bin/uvicorn src.api.main:app --reload
 ```
 
-**Open:** http://localhost:8501
+Frontend development server:
+```bash
+PATH="$(pwd)/.local/node/bin:$PATH" npm --prefix frontend run dev
+```
+
+Production build:
+```bash
+PATH="$(pwd)/.local/node/bin:$PATH" npm --prefix frontend run build
+.venv/bin/uvicorn src.api.main:app
+```
+
+**Open:** http://127.0.0.1:8000
 
 **Features:**
-- 🗺️ Click bridges on US map
-- 📊 GNSS/InSAR/sensor time series
-- 🏗️ 3D bridge digital twin with anomaly markers
-- 🖼️ InSAR images + deformation masks/overlays
-- 📋 Live anomaly table + XAI explanations
+- Fleet overview with risk map and priority queue
+- Per-bridge telemetry workspace for GNSS, InSAR, and sensor data
+- Bridge digital twin hotspot visualization
+- InSAR frame viewer with amplitude, interferogram, heatmap, coherence, and overlay images
+- Explainability factors, anomaly ledger, and markdown report browser
+- FastAPI endpoints for bridge refresh, full pipeline rerun, and report generation
 
 ## Quick Commands Summary
 
@@ -85,7 +98,8 @@ streamlit run src/visualization/dashboard.py
 | **Full pipeline** | `python main.py` |
 | **Pipeline + AI agents** | `python main.py --run-agents` |
 | **Fast re-run (skip data gen)** | `python main.py --skip-generate` |
-| **Dashboard only** | `streamlit run src/visualization/dashboard.py` |
+| **Web API + built frontend** | `.venv/bin/uvicorn src.api.main:app` |
+| **Frontend dev server** | `PATH="$(pwd)/.local/node/bin:$PATH" npm --prefix frontend run dev` |
 | **Agents w/ OpenAI** | `python main.py --run-agents --llm-provider openai --api-key sk-...` |
 
 ## Expected Outputs
@@ -106,14 +120,14 @@ reports/shm_report_*.md            ← AI-generated engineering report (agents o
 | **Missing dataset** | Run kaggle download command |
 | **Ollama agents slow** | Use `--llm-provider openai` |
 | **No reports/ dir** | Agents auto-create it |
-| **Streamlit fails** | `pip install streamlit plotly` |
+| **Frontend build fails** | `PATH="$(pwd)/.local/node/bin:$PATH" npm --prefix frontend install` |
+| **API dependencies missing** | `pip install -r requirements.txt` |
 | **CUDA out of memory** | Use CPU-only: `pip uninstall torch` |
 
 ## Verify Success
 
 ✅ **Pipeline:** Check `data/bridges/` has 6 folders, models/*.pkl exist  
 ✅ **Agents:** Check `reports/shm_report_*.md` with risk-ranked bridges  
-✅ **Dashboard:** http://localhost:8501 shows map + bridge data  
+✅ **Web app:** http://127.0.0.1:8000 shows the control room interface  
 
 **Project fully operational! 🚀**
-

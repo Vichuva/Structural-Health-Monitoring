@@ -1,0 +1,135 @@
+{
+  "metadata": {
+    "name": "crew_dashboard_20260406_080616",
+    "generated_at": "2026-04-06T08:06:16.248195",
+    "provider": "gemini",
+    "model": "gemini/gemini-2.5-pro",
+    "focus_bridges": [
+      "bridge_alpha",
+      "bridge_beta",
+      "bridge_gamma"
+    ],
+    "markdown_path": "reports/crew_dashboard_20260406_080616.md"
+  },
+  "analyst": {
+    "headline": "All monitored bridges currently have active anomaly alerts. The Pacific Crown bridge ('bridge_alpha') is the highest risk asset.",
+    "fleet_status": "All 6 bridges in the monitoring portfolio have active anomaly alerts. The fleet-wide average anomaly probability is 2.01%, with a peak of 100%. The 'Pacific Crown' bridge is the highest risk asset with 129 anomalies detected.",
+    "summary_points": [
+      "Pacific Crown ('bridge_alpha'): 129 anomalies, 2.74% average probability, 100% max probability. Peak deflection of 29.75mm. Top hotspot is the Deck.",
+      "Sound Span ('bridge_beta'): 86 anomalies, 2.42% average probability, 100% max probability. Peak deflection of 29.97mm. Top hotspot is the Piers.",
+      "Hudson Relay ('bridge_gamma'): 67 anomalies, 1.78% average probability, 100% max probability. Peak deflection of 30.31mm. Top hotspot is the Deck."
+    ],
+    "watchlist": [
+      "bridge_alpha (Pacific Crown): Highest number of anomalies (129) and a max anomaly probability of 100%. Peak sensor deflection of 29.75mm.",
+      "bridge_beta (Sound Span): Second highest anomaly count (86) with a max anomaly probability of 100%. Peak sensor deflection of 29.97mm.",
+      "bridge_gamma (Hudson Relay): Significant number of anomalies (67) with a max anomaly probability of 100%. Highest peak deflection among the top 3 at 30.31mm."
+    ],
+    "model_commentary": "The anomaly detection model (stacked_spatiotemporal_bridge_ensemble_v2) is performing well, with Precision: 0.957, Recall: 0.944, F1-score: 0.950, and ROC AUC: 0.999. The top features driving the model's predictions are 'Probability_of_Failure_PoF' and its 12-period exponential moving average, along with the 'Bridge_Mood_Meter'.",
+    "operational_note": "Continue to closely monitor the watchlist bridges. The telemetry data from GNSS, InSAR, and on-bridge sensors will be critical for assessing the evolution of the detected anomalies. Engineering teams should be on standby for potential inspection requests."
+  },
+  "triage": {
+    "escalation_headline": "Immediate inspection required for Pacific Crown bridge; high risk across multiple indicators.",
+    "bridge_priorities": [
+      {
+        "bridge_id": "bridge_alpha",
+        "bridge_name": "Pacific Crown",
+        "risk_level": "High",
+        "urgency_score": 10,
+        "recommendation": "IMMEDIATE_INSPECTION",
+        "rationale": "Highest anomaly count (129) and highest peak probability of failure (0.7087) in the fleet. The volatility of failure probability is the primary driver of the high-risk assessment. Cross-modality data from sensors and InSAR confirms anomalous structural behavior.",
+        "dominant_hotspot": "Deck",
+        "primary_driver": "Probability_of_Failure_PoF_roll_std_12",
+        "modalities_agreeing": [
+          "Predictions",
+          "Sensors",
+          "InSAR"
+        ],
+        "anomaly_count": 129,
+        "max_probability": 1.0
+      },
+      {
+        "bridge_id": "bridge_beta",
+        "bridge_name": "Sound Span",
+        "risk_level": "Medium",
+        "urgency_score": 8,
+        "recommendation": "PRIORITY_INSPECTION",
+        "rationale": "Second highest anomaly count (86) with a significant peak probability of failure (0.6282). The dominant hotspot is on the piers, a critical structural component. The risk is compounded by the volatile failure probability.",
+        "dominant_hotspot": "Piers",
+        "primary_driver": "Probability_of_Failure_PoF_roll_std_12",
+        "modalities_agreeing": [
+          "Predictions",
+          "Sensors",
+          "InSAR"
+        ],
+        "anomaly_count": 86,
+        "max_probability": 1.0
+      },
+      {
+        "bridge_id": "bridge_gamma",
+        "bridge_name": "Hudson Relay",
+        "risk_level": "Moderate",
+        "urgency_score": 6,
+        "recommendation": "SCHEDULED_INSPECTION",
+        "rationale": "High number of anomalies (67) and a peak failure probability of 0.5906. Although lower than other high-risk bridges, the consistent high-risk score driven by failure probability volatility warrants attention.",
+        "dominant_hotspot": "Deck",
+        "primary_driver": "Probability_of_Failure_PoF_roll_std_12",
+        "modalities_agreeing": [
+          "Predictions",
+          "Sensors",
+          "InSAR"
+        ],
+        "anomaly_count": 67,
+        "max_probability": 1.0
+      }
+    ],
+    "action_counts": {
+      "SCHEDULED_INSPECTION": 1,
+      "IMMEDIATE_INSPECTION": 1,
+      "PRIORITY_INSPECTION": 1
+    },
+    "consensus_notes": [
+      "The top three bridges show a consistent pattern where the primary driver for high-risk predictions is the 12-period rolling standard deviation of the 'Probability_of_Failure_PoF' feature, indicating that increasing volatility in failure probability is a key risk indicator.",
+      "All three high-priority bridges show agreement across multiple monitoring modalities (Predictions, Sensors, InSAR), increasing confidence in the need for intervention.",
+      "Pacific Crown has the highest anomaly count and peak failure probability, making it the top priority for immediate action."
+    ],
+    "maintenance_queue": [
+      "bridge_alpha",
+      "bridge_beta",
+      "bridge_gamma"
+    ]
+  },
+  "visual_plan": {
+    "hero_title": "Immediate Action Required: Pacific Crown Bridge at Critical Risk",
+    "hero_message": "The entire fleet of 6 bridges is under an active alert status. The Pacific Crown bridge ('bridge_alpha') is the highest risk asset, with 129 active anomalies and a peak failure probability of 71%. An immediate inspection is required.",
+    "panel_callouts": [
+      "Fleet-Wide Alert: All 6 monitored bridges are reporting anomalies, with a fleet-wide average probability of 2.01%.",
+      "Highest Risk Asset: Pacific Crown has 129 anomalies, the highest in the fleet, with a peak failure probability of 71%.",
+      "High-Confidence Model: Anomaly detection model is operating at >95% precision and recall, with 'Probability of Failure' volatility as the key risk indicator."
+    ],
+    "chart_annotations": [
+      "Focus on PoF Volatility: Note the increasing trend in the rolling standard deviation of 'Probability of Failure' for high-risk bridges. This is the primary risk driver.",
+      "Anomaly Threshold: Anomalies are flagged when the prediction score exceeds the model's 99.99% threshold.",
+      "Multi-Modal Agreement: Icons indicate when Predictions, Sensors, and InSAR data all agree on an anomalous reading, increasing confidence."
+    ],
+    "visual_watchouts": [
+      "Highlight Pacific Crown ('bridge_alpha') on all maps and charts due to its 'High' risk level and immediate inspection recommendation.",
+      "Visually distinguish the dominant hotspots on bridge diagrams: 'Deck' for Pacific Crown and 'Piers' for Sound Span.",
+      "Trend lines for Probability of Failure (PoF) should be prominently displayed for the top 3 watchlist bridges, annotating the peak values."
+    ],
+    "operator_prompts": [
+      "Action: Dispatch an inspection team to Pacific Crown ('bridge_alpha') immediately. Reference rationale: highest anomaly count and peak failure probability.",
+      "Action: Escalate Sound Span ('bridge_beta') for priority engineering review. Dominant hotspot on piers requires urgent attention.",
+      "Action: Add Hudson Relay ('bridge_gamma') to the scheduled maintenance queue for the upcoming cycle."
+    ]
+  },
+  "report": {
+    "report_title": "Bridge Monitoring Fleet: Immediate Inspection Required for Pacific Crown Bridge",
+    "executive_brief": "The entire fleet of 6 monitored bridges is under an active alert status. The Pacific Crown bridge ('bridge_alpha') is the highest risk asset, with 129 active anomalies and a peak failure probability of 71%. An immediate inspection is required based on high-confidence, multi-modal sensor data.",
+    "admin_recommendations": [
+      "Action: Dispatch an inspection team to Pacific Crown ('bridge_alpha') immediately. Reference rationale: highest anomaly count and peak failure probability.",
+      "Action: Escalate Sound Span ('bridge_beta') for priority engineering review. Dominant hotspot on piers requires urgent attention.",
+      "Action: Add Hudson Relay ('bridge_gamma') to the scheduled maintenance queue for the upcoming cycle."
+    ],
+    "markdown_report": "# Bridge Operations Brief\n\n## Executive Summary\n\nAll 6 bridges in the monitoring portfolio have active anomaly alerts. The fleet-wide average anomaly probability is 2.01%, with a peak of 100%. The Pacific Crown bridge ('bridge_alpha') is the highest risk asset with 129 anomalies detected, requiring immediate inspection.\n\n## Bridge Priorities\n\n| Bridge Name     | Risk Level   | Anomaly Count | Recommendation        | Rationale                                                                                                                                                                                                    |\n|-----------------|--------------|---------------|-----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n| **Pacific Crown**   | **High**     | **129**       | **IMMEDIATE_INSPECTION**  | Highest anomaly count and highest peak probability of failure (0.7087) in the fleet. The volatility of failure probability is the primary driver. Cross-modality data confirms anomalous structural behavior.     |\n| **Sound Span**      | **Medium**   | **86**        | **PRIORITY_INSPECTION**   | Second highest anomaly count with a significant peak probability of failure (0.6282). The dominant hotspot is on the piers, a critical structural component.                                                    |\n| **Hudson Relay**    | **Moderate** | **67**        | **SCHEDULED_INSPECTION**  | High number of anomalies and a peak failure probability of 0.5906. The consistent high-risk score driven by failure probability volatility warrants attention.                                              |\n\n## Visual Highlights\n\n- **Primary Dashboard Alert:** Highlight Pacific Crown ('bridge_alpha') on all maps and charts due to its 'High' risk level.\n- **Key Visual Indicator:** Emphasize the increasing trend in the rolling standard deviation of 'Probability of Failure' for high-risk bridges, as this is the primary risk driver.\n- **Hotspot Visualization:** Visually distinguish dominant hotspots on bridge diagrams: 'Deck' for Pacific Crown and 'Piers' for Sound Span.\n\n## Maintenance Actions\n\n- **Immediate Dispatch:** Dispatch an inspection team to Pacific Crown ('bridge_alpha'). Rationale: highest anomaly count and peak failure probability.\n- **Priority Engineering Review:** Escalate Sound Span ('bridge_beta') for engineering review. Rationale: Dominant hotspot on piers.\n- **Scheduled Maintenance:** Add Hudson Relay ('bridge_gamma') to the scheduled maintenance queue.\n"
+  }
+}

@@ -1,0 +1,299 @@
+{
+  "metadata": {
+    "name": "crew_dashboard_20260406_082017",
+    "generated_at": "2026-04-06T08:20:17.472147",
+    "provider": "gemini",
+    "model": "gemini/gemini-2.5-pro",
+    "focus_bridges": [
+      "Pacific Crown",
+      "Sound Span",
+      "Hudson Relay",
+      "Lakeshore Axis",
+      "Gulf Meridian",
+      "Atlantic Veil"
+    ],
+    "focus_bridge_ids": [
+      "bridge_alpha",
+      "bridge_beta",
+      "bridge_gamma",
+      "bridge_delta",
+      "bridge_epsilon",
+      "bridge_zeta"
+    ],
+    "overview_bridges": [
+      {
+        "bridge_id": "bridge_alpha",
+        "bridge_name": "Pacific Crown",
+        "city": "San Francisco",
+        "region": "West",
+        "lat": 37.8199,
+        "lon": -122.4783,
+        "anomaly_count": 129,
+        "avg_probability": 0.0274,
+        "max_probability": 1.0,
+        "mean_health_index": 0.8158,
+        "peak_deflection_mm": 29.75,
+        "peak_displacement_mm": 27.483,
+        "top_hotspot": "Deck"
+      },
+      {
+        "bridge_id": "bridge_beta",
+        "bridge_name": "Sound Span",
+        "city": "Seattle",
+        "region": "West",
+        "lat": 47.6205,
+        "lon": -122.3493,
+        "anomaly_count": 86,
+        "avg_probability": 0.0242,
+        "max_probability": 1.0,
+        "mean_health_index": 0.8159,
+        "peak_deflection_mm": 29.965,
+        "peak_displacement_mm": 27.63,
+        "top_hotspot": "Piers"
+      },
+      {
+        "bridge_id": "bridge_gamma",
+        "bridge_name": "Hudson Relay",
+        "city": "New York",
+        "region": "Northeast",
+        "lat": 40.7061,
+        "lon": -73.9969,
+        "anomaly_count": 67,
+        "avg_probability": 0.0178,
+        "max_probability": 1.0,
+        "mean_health_index": 0.8158,
+        "peak_deflection_mm": 30.308,
+        "peak_displacement_mm": 27.324,
+        "top_hotspot": "Deck"
+      },
+      {
+        "bridge_id": "bridge_delta",
+        "bridge_name": "Lakeshore Axis",
+        "city": "Chicago",
+        "region": "Midwest",
+        "lat": 41.8789,
+        "lon": -87.6359,
+        "anomaly_count": 65,
+        "avg_probability": 0.0174,
+        "max_probability": 1.0,
+        "mean_health_index": 0.8158,
+        "peak_deflection_mm": 29.983,
+        "peak_displacement_mm": 27.334,
+        "top_hotspot": "Piers"
+      },
+      {
+        "bridge_id": "bridge_epsilon",
+        "bridge_name": "Gulf Meridian",
+        "city": "Houston",
+        "region": "South",
+        "lat": 29.752,
+        "lon": -95.3584,
+        "anomaly_count": 63,
+        "avg_probability": 0.0171,
+        "max_probability": 1.0,
+        "mean_health_index": 0.8158,
+        "peak_deflection_mm": 29.826,
+        "peak_displacement_mm": 27.205,
+        "top_hotspot": "Deck"
+      },
+      {
+        "bridge_id": "bridge_zeta",
+        "bridge_name": "Atlantic Veil",
+        "city": "Miami",
+        "region": "South",
+        "lat": 25.7634,
+        "lon": -80.1918,
+        "anomaly_count": 62,
+        "avg_probability": 0.0169,
+        "max_probability": 1.0,
+        "mean_health_index": 0.8162,
+        "peak_deflection_mm": 30.389,
+        "peak_displacement_mm": 27.429,
+        "top_hotspot": "Piers"
+      }
+    ],
+    "markdown_path": "reports/crew_dashboard_20260406_082017.md"
+  },
+  "analyst": {
+    "headline": "Immediate Inspection Required for Pacific Crown Bridge; Fleet-Wide Anomalies Detected",
+    "fleet_status": "Critical: All six monitored bridges are reporting anomalies, with the Pacific Crown Bridge showing the most significant number of alerts, requiring immediate attention.",
+    "summary_points": [
+      "All six bridges in the fleet are currently reporting anomalies, with prediction probabilities peaking at 1.0.",
+      "The Pacific Crown Bridge ('bridge_alpha') has the highest alert count with 129 anomalies, making it the highest priority for inspection.",
+      "The Sound Span Bridge ('bridge_beta') and Hudson Relay Bridge ('bridge_gamma') are the next most critical, with 86 and 67 anomalies, respectively.",
+      "The anomaly detection model is performing with high precision (0.957) and recall (0.944), indicating a high degree of confidence in the alerts."
+    ],
+    "watchlist": [
+      "Pacific Crown (bridge_alpha): Highest priority due to 129 anomalies and sustained high-risk predictions.",
+      "Sound Span (bridge_beta): Elevated anomaly count (86) requires close monitoring.",
+      "Hudson Relay (bridge_gamma): Moderate anomaly count (67) warrants follow-up."
+    ],
+    "model_commentary": "The `stacked_spatiotemporal_bridge_ensemble_v2` model is stable and performing as expected, with an F1 score of 0.95. The top features driving the model's predictions include the Probability of Failure (PoF), Bridge Mood Meter, and Flood Event Flags, suggesting that the model is effectively capturing a combination of direct structural metrics and environmental factors.",
+    "operational_note": "An inspection crew should be dispatched to the Pacific Crown Bridge immediately to assess the situation. The other bridges on the watchlist should undergo remote inspection and data review by the engineering team. Continue to monitor the fleet closely for any changes."
+  },
+  "triage": {
+    "escalation_headline": "Immediate Action Required for Pacific Crown Bridge; Fleet-Wide Risk Elevated",
+    "bridge_priorities": [
+      {
+        "bridge_id": "bridge_alpha",
+        "bridge_name": "Pacific Crown",
+        "risk_level": "Critical",
+        "urgency_score": 10,
+        "recommendation": "Immediate Dispatch",
+        "rationale": "Highest anomaly count (129) and peak probability of failure (0.7087) in the fleet. The combination of high alert volume and severity warrants immediate on-site inspection.",
+        "dominant_hotspot": "Deck",
+        "primary_driver": "Probability_of_Failure_PoF_roll_std_12",
+        "modalities_agreeing": [
+          "GNSS",
+          "InSAR",
+          "Sensors"
+        ],
+        "anomaly_count": 129,
+        "max_probability": 1.0
+      },
+      {
+        "bridge_id": "bridge_beta",
+        "bridge_name": "Sound Span",
+        "risk_level": "High",
+        "urgency_score": 9,
+        "recommendation": "On-site Inspection",
+        "rationale": "Second highest anomaly count (86) and a significant peak probability of failure (0.6282). Requires physical inspection to assess pier integrity.",
+        "dominant_hotspot": "Piers",
+        "primary_driver": "Probability_of_Failure_PoF_roll_std_12",
+        "modalities_agreeing": [
+          "GNSS",
+          "InSAR",
+          "Sensors"
+        ],
+        "anomaly_count": 86,
+        "max_probability": 1.0
+      },
+      {
+        "bridge_id": "bridge_gamma",
+        "bridge_name": "Hudson Relay",
+        "risk_level": "High",
+        "urgency_score": 8,
+        "recommendation": "On-site Inspection",
+        "rationale": "High anomaly count (67) and elevated probability of failure (0.5906). The deck is the dominant hotspot, requiring direct visual assessment.",
+        "dominant_hotspot": "Deck",
+        "primary_driver": "Probability_of_Failure_PoF_roll_std_12",
+        "modalities_agreeing": [
+          "GNSS",
+          "InSAR",
+          "Sensors"
+        ],
+        "anomaly_count": 67,
+        "max_probability": 1.0
+      },
+      {
+        "bridge_id": "bridge_delta",
+        "bridge_name": "Lakeshore Axis",
+        "risk_level": "Medium",
+        "urgency_score": 7,
+        "recommendation": "Remote Inspection",
+        "rationale": "Moderate anomaly count (65) and probability of failure (0.5811). Initial assessment can be performed remotely by reviewing sensor and telemetry data for the pier hotspots.",
+        "dominant_hotspot": "Piers",
+        "primary_driver": "Probability_of_Failure_PoF_roll_std_12",
+        "modalities_agreeing": [
+          "GNSS",
+          "InSAR",
+          "Sensors"
+        ],
+        "anomaly_count": 65,
+        "max_probability": 1.0
+      },
+      {
+        "bridge_id": "bridge_epsilon",
+        "bridge_name": "Gulf Meridian",
+        "risk_level": "Medium",
+        "urgency_score": 6,
+        "recommendation": "Remote Inspection",
+        "rationale": "Slightly lower anomaly count (63) and PoF (0.5107). Remote data review is sufficient at this stage to determine if further action is needed.",
+        "dominant_hotspot": "Deck",
+        "primary_driver": "Probability_of_Failure_PoF_roll_std_12",
+        "modalities_agreeing": [
+          "GNSS",
+          "InSAR",
+          "Sensors"
+        ],
+        "anomaly_count": 63,
+        "max_probability": 1.0
+      },
+      {
+        "bridge_id": "bridge_zeta",
+        "bridge_name": "Atlantic Veil",
+        "risk_level": "Low",
+        "urgency_score": 5,
+        "recommendation": "Monitor",
+        "rationale": "Lowest anomaly count (62) and PoF (0.4579) in the fleet. Continued monitoring is recommended, with no immediate action required unless conditions change.",
+        "dominant_hotspot": "Piers",
+        "primary_driver": "Probability_of_Failure_PoF_roll_std_12",
+        "modalities_agreeing": [
+          "GNSS",
+          "InSAR",
+          "Sensors"
+        ],
+        "anomaly_count": 62,
+        "max_probability": 1.0
+      }
+    ],
+    "action_counts": {
+      "Immediate Dispatch": 1,
+      "On-site Inspection": 2,
+      "Remote Inspection": 2,
+      "Monitor": 1
+    },
+    "consensus_notes": [
+      "All bridges in the fleet are exhibiting anomaly predictions with maximum probability, indicating a systemic issue or widespread environmental event may be a contributing factor.",
+      "The primary driver for the high probability alerts across all bridges is 'Probability_of_Failure_PoF_roll_std_12', suggesting that recent volatility in failure probability is the key indicator.",
+      "There is strong cross-modality agreement between GNSS, InSAR, and physical sensor data for all bridges, increasing confidence in the anomaly detections."
+    ],
+    "maintenance_queue": [
+      "Pacific Crown",
+      "Sound Span",
+      "Hudson Relay",
+      "Lakeshore Axis",
+      "Gulf Meridian",
+      "Atlantic Veil"
+    ]
+  },
+  "visual_plan": {
+    "hero_title": "Immediate Action Required for Pacific Crown Bridge; Fleet-Wide Risk Elevated",
+    "hero_message": "Critical Alert: All six monitored bridges are reporting a high volume of anomalies. The Pacific Crown Bridge is the highest priority, with 129 alerts and a peak failure probability of 0.71, requiring immediate dispatch of an inspection crew.",
+    "panel_callouts": [
+      "Fleet Status: 6 of 6 bridges with active alerts.",
+      "Highest Priority: Pacific Crown (129 anomalies).",
+      "Triage Plan: 1 immediate dispatch, 2 on-site inspections, 2 remote inspections.",
+      "Model Confidence: 95.7% Precision."
+    ],
+    "chart_annotations": [
+      "On the bridge ranking chart, highlight 'Pacific Crown' with 'Critical' status.",
+      "Annotate the anomaly count for 'Pacific Crown' to show the peak of 129.",
+      "On the feature importance chart, call out the top driver: 'Probability_of_Failure_PoF_roll_std_12'.",
+      "On the 'Pacific Crown' telemetry chart, mark the peak sensor deflection at 29.75mm."
+    ],
+    "visual_watchouts": [
+      "The primary fleet health status indicator must be set to 'CRITICAL'.",
+      "The 'Pacific Crown' bridge should be visually distinct (e.g., dark red) on all maps and lists.",
+      "Ensure the maintenance queue is visible and ordered by urgency score.",
+      "The map view should indicate that all bridges in the fleet are in an alert state."
+    ],
+    "operator_prompts": [
+      "Dispatch inspection crew to Pacific Crown bridge.",
+      "Initiate on-site inspection for Sound Span and Hudson Relay bridges.",
+      "Begin remote inspection for Lakeshore Axis and Gulf Meridian bridges.",
+      "Acknowledge the fleet-wide alert and review the full triage summary."
+    ]
+  },
+  "report": {
+    "report_title": "Archival Engineering Brief: Fleet-Wide Anomaly",
+    "executive_brief": "Critical Alert: All six monitored bridges are reporting a high volume of anomalies. The Pacific Crown Bridge is the highest priority, with 129 alerts and a peak failure probability of 0.71, requiring immediate dispatch of an inspection crew. Fleet-wide risk is elevated, and a coordinated response is required.",
+    "admin_recommendations": [
+      "Dispatch inspection crew to Pacific Crown bridge.",
+      "Initiate on-site inspection for Sound Span and Hudson Relay bridges.",
+      "Begin remote inspection for Lakeshore Axis and Gulf Meridian bridges.",
+      "Acknowledge the fleet-wide alert and review the full triage summary."
+    ],
+    "markdown_report": "# Engineering Brief: Fleet-Wide Bridge Anomaly Report\n\n**Report Date:** 2024-05-23\n**Model Version:** `stacked_spatiotemporal_bridge_ensemble_v2`\n**Status:** CRITICAL\n\n---\n\n## 1. Executive Summary\n\n**Immediate Action Required for Pacific Crown Bridge; Fleet-Wide Risk Elevated.** All six monitored bridges are reporting a high volume of anomalies, indicating a potential systemic issue or widespread environmental event. The **Pacific Crown Bridge (`bridge_alpha`)** is the highest priority, with **129 anomalies** and a peak failure probability of 0.71, requiring immediate dispatch of an inspection crew.\n\nThe anomaly detection model is performing with high confidence (**95.7% Precision, 94.4% Recall, 0.95 F1 Score**), and there is strong cross-modality agreement (GNSS, InSAR, Sensors) for all alerts. The primary driver for alerts across the fleet is **`Probability_of_Failure_PoF_roll_std_12`**, suggesting that recent volatility in failure probability is the key indicator of risk.\n\n## 2. Bridge Priority Ranking\n\nThe following is the ranked priority list for inspection and maintenance based on urgency scores derived from anomaly counts, risk levels, and model predictions.\n\n| Rank | Bridge Name (ID) | Risk Level | Urgency | Anomaly Count | Recommendation | Rationale |\n|:----:|:---|:---|:---:|:---:|:---|:---|\n| 1 | **Pacific Crown** (`bridge_alpha`) | Critical | 10 | 129 | **Immediate Dispatch** | Highest anomaly count (129) and peak probability of failure (0.7087) in the fleet. The combination of high alert volume and severity warrants immediate on-site inspection. |\n| 2 | **Sound Span** (`bridge_beta`) | High | 9 | 86 | **On-site Inspection** | Second highest anomaly count (86) and a significant peak probability of failure (0.6282). Requires physical inspection to assess pier integrity. |\n| 3 | **Hudson Relay** (`bridge_gamma`) | High | 8 | 67 | **On-site Inspection** | High anomaly count (67) and elevated probability of failure (0.5906). The deck is the dominant hotspot, requiring direct visual assessment. |\n| 4 | **Lakeshore Axis** (`bridge_delta`) | Medium | 7 | 65 | **Remote Inspection** | Moderate anomaly count (65) and probability of failure (0.5811). Initial assessment can be performed remotely by reviewing sensor and telemetry data for the pier hotspots. |\n| 5 | **Gulf Meridian** (`bridge_epsilon`) | Medium | 6 | 63 | **Remote Inspection** | Slightly lower anomaly count (63) and PoF (0.5107). Remote data review is sufficient at this stage to determine if further action is needed. |\n| 6 | **Atlantic Veil** (`bridge_zeta`) | Low | 5 | 62 | **Monitor** | Lowest anomaly count (62) and PoF (0.4579) in the fleet. Continued monitoring is recommended, with no immediate action required unless conditions change. |\n\n## 3. Dashboard Visual Highlights\n\nThe operations dashboard should be updated to reflect the following critical information:\n\n### Key Panel Callouts\n- **Fleet Status:** 6 of 6 bridges with active alerts.\n- **Highest Priority:** Pacific Crown (129 anomalies).\n- **Triage Plan:** 1 immediate dispatch, 2 on-site inspections, 2 remote inspections.\n- **Model Confidence:** 95.7% Precision.\n\n### Chart Annotations\n- **Bridge Ranking Chart:** Highlight 'Pacific Crown' with 'Critical' status.\n- **Anomaly Count Chart:** Annotate the anomaly count for 'Pacific Crown' to show the peak of 129.\n- **Feature Importance Chart:** Call out the top driver: 'Probability_of_Failure_PoF_roll_std_12'.\n- **Telemetry Chart:** On the 'Pacific Crown' chart, mark the peak sensor deflection at 29.75mm.\n\n### Critical Visual Watchouts\n- The primary fleet health status indicator must be set to **'CRITICAL'**.\n- The 'Pacific Crown' bridge should be visually distinct (e.g., dark red) on all maps and lists.\n- The maintenance queue must be visible and ordered by urgency score.\n- The map view should indicate that all bridges in the fleet are in an alert state.\n\n## 4. Maintenance Action Plan\n\nThe following actions are to be initiated immediately, in the order presented.\n\n### Tier 1: Immediate Dispatch (1)\n- **Asset:** Pacific Crown Bridge (`bridge_alpha`)\n- **Action:** Dispatch inspection crew for immediate on-site structural assessment. Focus on the deck, which is the dominant hotspot.\n\n### Tier 2: On-site Inspection (2)\n- **Asset:** Sound Span Bridge (`bridge_beta`)\n- **Action:** Schedule and perform on-site inspection. Focus on the piers.\n- **Asset:** Hudson Relay Bridge (`bridge_gamma`)\n- **Action:** Schedule and perform on-site inspection. Focus on the deck.\n\n### Tier 3: Remote Inspection (2)\n- **Asset:** Lakeshore Axis Bridge (`bridge_delta`)\n- **Action:** Engineering team to begin remote review of sensor and telemetry data, focusing on pier hotspots.\n- **Asset:** Gulf Meridian Bridge (`bridge_epsilon`)\n- **Action:** Engineering team to begin remote review of sensor and telemetry data, focusing on the deck.\n\n### Tier 4: Monitor (1)\n- **Asset:** Atlantic Veil Bridge (`bridge_zeta`)\n- **Action:** No immediate action required. Continue standard monitoring and flag any significant changes in anomaly counts or risk scores.\n"
+  }
+}

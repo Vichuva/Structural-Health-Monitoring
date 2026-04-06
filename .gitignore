@@ -38,3 +38,6 @@ coverage.xml
 .pytest_cache/
 *.pptx
 ~$*
+.local/
+frontend/node_modules/
+frontend/dist/

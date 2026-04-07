@@ -1,5 +1,6 @@
-# Structural Health Monitoring — Bridge Digital Twin
-## Complete Technical Documentation
+# Structural Health Monitoring (SHM) — Project Documentation
+
+> **Capstone Project** | Multi-modal bridge health monitoring system powered by machine learning, satellite data, and AI agents.
 
 ---
 
@@ -8,97 +9,85 @@
 1. [Project Overview](#1-project-overview)
 2. [System Architecture](#2-system-architecture)
 3. [Directory Structure](#3-directory-structure)
-4. [Configuration — `src/utils/config.py`](#4-configuration)
-5. [Synthetic Data Generators](#5-synthetic-data-generators)
-   - 5.1 GNSS Data Generator
-   - 5.2 InSAR Data Generator
-   - 5.3 Sensor Data Generator
-6. [GNSS Module](#6-gnss-module)
-   - 6.1 Preprocessing
-   - 6.2 Analysis
-7. [InSAR Module](#7-insar-module)
-   - 7.1 Preprocessing
-   - 7.2 Analysis
-   - 7.3 Image Processing
-8. [Sensor Module](#8-sensor-module)
-9. [Data Fusion Module](#9-data-fusion-module)
-10. [Anomaly Detection Module](#10-anomaly-detection-module)
-11. [Bridge (Kaggle) Pipeline](#11-bridge-kaggle-pipeline)
-12. [Visualization Dashboard](#12-visualization-dashboard)
-13. [Entry Point — `main.py`](#13-entry-point--mainpy)
-14. [Data Flow Diagram](#14-data-flow-diagram)
-15. [Key Thresholds and Parameters](#15-key-thresholds-and-parameters)
-16. [Generated Outputs](#16-generated-outputs)
-17. [Setup and Running the Project](#17-setup-and-running-the-project)
-18. [Dependencies](#18-dependencies)
-19. [Glossary](#19-glossary)
+4. [Getting Started](#4-getting-started)
+5. [Core Pipeline Modules](#5-core-pipeline-modules)
+   - [GNSS Module](#51-gnss-module)
+   - [InSAR Module](#52-insar-module)
+   - [Sensor Module](#53-sensor-module)
+   - [Data Fusion Module](#54-data-fusion-module)
+   - [Anomaly Detection Module](#55-anomaly-detection-module)
+   - [Bridge Pipeline Module](#56-bridge-pipeline-module)
+6. [REST API](#6-rest-api)
+7. [CrewAI Agent System](#7-crewai-agent-system)
+8. [Frontend Dashboard](#8-frontend-dashboard)
+9. [Data Model](#9-data-model)
+10. [Configuration Reference](#10-configuration-reference)
+11. [CLI Reference](#11-cli-reference)
+12. [Environment Variables](#12-environment-variables)
+13. [Key ML Models](#13-key-ml-models)
 
 ---
 
 ## 1. Project Overview
 
-**Structural Health Monitoring (SHM)** is an end-to-end Python system designed to monitor the structural integrity of bridges using multiple data sources. It combines satellite geodesy, radar remote sensing, IoT sensor streams, and machine learning to detect anomalies and visualize structural health in real-time through a web-based dashboard.
+This project is a full-stack **Structural Health Monitoring (SHM)** platform designed to detect, analyze, and report anomalies in bridge infrastructure using multiple sensing modalities and machine learning.
 
 ### What It Does
 
-The system integrates three independent sensing modalities:
-
-| Modality | Technology | Measures |
-|---|---|---|
-| **GNSS** | GPS/GNSS satellite positioning | Ground displacement in X, Y, Z (millimetres) |
-| **InSAR** | SAR (Synthetic Aperture Radar) satellite imagery | Line-of-sight (LOS) surface deformation |
-| **Sensors** | IoT sensors on the bridge | Vibration, strain, tilt, temperature, acoustic emissions |
-
-These are fused together and fed into two machine learning models:
-1. **Isolation Forest** — unsupervised anomaly detection on the fused synthetic sensor data
-2. **Stacked Ensemble Classifier** — supervised anomaly classification trained on the Kaggle bridge digital twin dataset
-
-Results are displayed on an interactive **Streamlit dashboard** with map-based bridge selection, 3D visualizations, InSAR image overlays, and live anomaly tables.
+| Capability | Description |
+|---|---|
+| **Multi-modal data ingestion** | Processes GNSS (GPS displacement), InSAR (satellite radar), and IoT sensor data |
+| **Anomaly detection** | Trains and runs an Isolation Forest model on fused sensor data |
+| **Bridge digital twin** | Maintains a per-bridge dataset (telemetry, predictions, images) for 6 monitored bridges |
+| **ML ensemble model** | Trains a stacked classifier (HistGBM + ExtraTrees + RandomForest → LogisticRegression) to predict bridge anomalies from Kaggle data |
+| **Explainability (XAI)** | Computes counterfactual feature impacts to explain model predictions |
+| **CrewAI agents** | Deploys 4 specialized LLM-powered agents to synthesize telemetry into executive reports |
+| **REST API** | FastAPI backend exposing all pipeline results as structured JSON |
+| **React dashboard** | Vite/TypeScript frontend for interactive fleet-level and bridge-level analysis |
 
 ---
 
 ## 2. System Architecture
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                    DATA SOURCES                       │
-│  ┌──────────┐  ┌──────────┐  ┌─────────────────────┐ │
-│  │  GNSS    │  │  InSAR   │  │  IoT Sensors        │ │
-│  │(satellite│  │(satellite│  │(vibration, strain,  │ │
-│  │ GPS data)│  │  radar)  │  │ tilt, acoustic, etc)│ │
-│  └────┬─────┘  └────┬─────┘  └──────────┬──────────┘ │
-└───────┼─────────────┼────────────────────┼────────────┘
-        │             │                    │
-        ▼             ▼                    ▼
-┌───────────┐  ┌────────────┐     ┌─────────────────┐
-│  GNSS     │  │  InSAR     │     │    Sensor       │
-│ Preprocess│  │ Preprocess │     │  Preprocessing  │
-│(displacement│  │(normalize │     │ (feature eng.) │
-│   calc.)  │  │   LOS)    │     │                 │
-└─────┬─────┘  └─────┬──────┘     └────────┬────────┘
-      │               │                     │
-      ├───────────────┘                     │
-      ▼                                     │
-┌─────────────┐                             │
-│ Data Fusion │◄────────────────────────────┘
-│(GNSS + InSAR│
-│  weighted   │
-│   merge)    │
-└──────┬──────┘
-       │
-       ▼
-┌──────────────────┐       ┌──────────────────────────┐
-│ Anomaly Detection│       │  Kaggle Bridge Pipeline  │
-│(Isolation Forest)│       │(Stacked Ensemble Model)  │
-└──────┬───────────┘       └──────────┬───────────────┘
-       │                              │
-       └──────────────┬───────────────┘
-                      ▼
-             ┌────────────────┐
-             │   Streamlit    │
-             │   Dashboard    │
-             │ (visualization)│
-             └────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                        Data Sources                                  │
+│  ┌──────────┐  ┌──────────┐  ┌───────────┐  ┌──────────────────┐   │
+│  │   GNSS   │  │  InSAR   │  │  Sensors  │  │  Kaggle Bridge   │   │
+│  │ (GPS XYZ)│  │(SAR imgs)│  │(IoT data) │  │  Digital Twin    │   │
+│  └────┬─────┘  └────┬─────┘  └─────┬─────┘  └────────┬─────────┘   │
+└───────┼─────────────┼──────────────┼───────────────────┼────────────┘
+        │             │              │                   │
+┌───────▼─────────────▼──────────────▼───────────────────▼────────────┐
+│                     Preprocessing Layer                               │
+│   gnss_preprocessing → insar_preprocessing → sensor_preprocessing    │
+└───────────────────────────┬──────────────────────────────────────────┘
+                             │
+┌────────────────────────────▼─────────────────────────────────────────┐
+│                     Analysis & Fusion Layer                            │
+│         gnss_analysis + insar_analysis → data_fusion                  │
+│         kaggle_bridge_pipeline (train + predict)                       │
+└────────────────────────────┬─────────────────────────────────────────┘
+                             │
+┌────────────────────────────▼─────────────────────────────────────────┐
+│                     Anomaly Detection Layer                            │
+│         detect_anomalies (Isolation Forest on fused data)             │
+│         bridge_anomaly_model (Stacked Ensemble on bridge telemetry)    │
+└────────────────┬────────────────────────────┬────────────────────────┘
+                 │                            │
+    ┌────────────▼──────────┐    ┌────────────▼──────────────┐
+    │   FastAPI REST API     │    │     CrewAI Agent Crew      │
+    │  /api/overview         │    │  Fleet Intelligence Analyst│
+    │  /api/bridges/:id      │    │  Structural Triage Engineer│
+    │  /api/reports          │    │  Dashboard Strategist      │
+    │  /api/pipeline/run     │    │  Executive Reporting Lead  │
+    └────────────┬──────────┘    └────────────┬──────────────┘
+                 │                            │
+    ┌────────────▼────────────────────────────▼──────────────┐
+    │              React / Vite Frontend Dashboard             │
+    │  Fleet Overview · Bridge Detail · InSAR Viewer          │
+    │  XAI Explainability · Reports Workspace                 │
+    └────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -106,750 +95,801 @@ Results are displayed on an interactive **Streamlit dashboard** with map-based b
 ## 3. Directory Structure
 
 ```
-Structural-Health-Monitoring/
+Capstone_Vijay/
 │
-├── main.py                        ← Entry point; orchestrates the full pipeline
-├── requirements.txt               ← Python package dependencies
-├── pyrightconfig.json             ← Pyright/Pylance type checker config
-├── .pyre_configuration            ← Pyre2 type checker config
-├── README.md                      ← Brief project readme
-├── DOCUMENTATION.md               ← This file
+├── main.py                    # CLI entry point — runs the full pipeline
+├── requirements.txt           # Python dependencies
+├── .env / .env.example        # Environment variables (API keys, LLM config)
 │
-├── src/                           ← All source code
+├── src/                       # All Python source code
 │   ├── __init__.py
-│   ├── utils/
-│   │   ├── config.py              ← All paths, thresholds, and hyperparameters
-│   │   ├── generate_synthetic_gnss.py
-│   │   ├── generate_synthetic_insar.py
-│   │   └── generate_synthetic_sensor_data.py
+│   ├── agents/                # CrewAI multi-agent system
+│   │   ├── crew.py            # Agent definitions, tasks, crew orchestration
+│   │   ├── tools.py           # Agent tool implementations (read fleet, write report, etc.)
+│   │   └── prompts.py         # Optional prompt templates
 │   │
-│   ├── gnss/
-│   │   ├── gnss_preprocessing.py  ← Loads + computes displacement from raw GNSS
-│   │   └── gnss_analysis.py       ← Computes horizontal/vertical/total mm + flags
-│   │
-│   ├── insar/
-│   │   ├── insar_preprocessing.py ← Normalizes LOS displacement timeseries
-│   │   ├── insar_analysis.py      ← Flags pixels exceeding threshold
-│   │   └── insar_image_processing.py ← SAR image → deformation mask + overlay
-│   │
-│   ├── sensors/
-│   │   └── sensor_preprocessing.py ← Feature engineering on IoT sensor data
-│   │
-│   ├── fusion/
-│   │   └── data_fusion.py         ← Weighted merge of GNSS + InSAR
+│   ├── api/                   # FastAPI REST backend
+│   │   ├── main.py            # Route definitions
+│   │   └── services.py        # Business logic layer (data access, computations)
 │   │
 │   ├── anomaly_detection/
-│   │   └── detect_anomalies.py    ← Isolation Forest anomaly detection
+│   │   └── detect_anomalies.py  # Isolation Forest anomaly detection
 │   │
 │   ├── bridges/
-│   │   └── kaggle_bridge_pipeline.py ← Full ML training + bridge-level inference
+│   │   └── kaggle_bridge_pipeline.py  # Dataset loading, training, inference, XAI
 │   │
-│   └── visualization/
-│       └── dashboard.py           ← Streamlit web dashboard
-│
-├── data/
+│   ├── fusion/
+│   │   └── data_fusion.py     # GNSS + InSAR weighted fusion
+│   │
 │   ├── gnss/
-│   │   ├── raw/gnss_raw.csv
-│   │   └── processed/gnss_displacement.csv, gnss_analysis.csv
+│   │   ├── gnss_preprocessing.py  # Raw GNSS → displacement
+│   │   └── gnss_analysis.py       # Threshold detection, smooth signals
+│   │
 │   ├── insar/
-│   │   ├── raw/sentinel_images/   ← SAR image PNGs
-│   │   └── processed/insar_timeseries.csv, insar_analysis.csv, masks/, overlays/
+│   │   ├── insar_preprocessing.py    # Raw InSAR → normalized time-series
+│   │   ├── insar_analysis.py         # Threshold detection
+│   │   └── insar_image_processing.py # SAR image mask generation
+│   │
 │   ├── sensors/
-│   │   ├── raw/sensor_data.csv
-│   │   └── processed/sensor_features.csv
-│   ├── fused/
-│   │   ├── fused_displacement.csv
-│   │   └── fused_training_frame.csv
-│   ├── external/
-│   │   └── bridge_digital_twin_dataset.csv  ← Kaggle dataset (download manually)
-│   └── bridges/
+│   │   └── sensor_preprocessing.py  # IoT sensor feature extraction
+│   │
+│   ├── utils/
+│   │   ├── config.py                        # All path constants and thresholds
+│   │   ├── generate_synthetic_gnss.py       # Synthetic GNSS data generator
+│   │   ├── generate_synthetic_insar.py      # Synthetic InSAR data generator
+│   │   └── generate_synthetic_sensor_data.py # Synthetic IoT sensor generator
+│   │
+│   └── visualization/                       # (reserved for plot utilities)
+│
+├── data/                       # All data files (auto-created by pipeline)
+│   ├── external/               # Raw Kaggle bridge dataset CSV
+│   ├── gnss/                   # GNSS raw and processed data
+│   ├── insar/                  # InSAR raw images and processed masks
+│   ├── sensors/                # IoT sensor raw and processed data
+│   ├── fused/                  # Merged GNSS+InSAR output
+│   └── bridges/                # Per-bridge digital twin data
 │       ├── bridge_registry.csv
 │       ├── bridge_predictions.csv
-│       └── <bridge_id>/           ← Per-bridge data folders
+│       └── {bridge_id}/        # Per-bridge subdirectory
 │           ├── source_dataset.csv
 │           ├── gnss_raw.csv
 │           ├── insar_timeseries.csv
 │           ├── sensor_data.csv
 │           ├── predictions.csv
-│           ├── insar_mask_metadata.csv
-│           ├── insar_images/
-│           ├── insar_masks/
-│           └── insar_overlays/
+│           ├── xai_top_factors.csv
+│           └── insar_images/, insar_masks/, ...
 │
-├── models/
-│   ├── sensor_anomaly_model.pkl   ← Isolation Forest model artifact
-│   ├── bridge_anomaly_model.pkl   ← Stacked ensemble model artifact
+├── models/                     # Trained ML model artifacts
+│   ├── sensor_anomaly_model.pkl
+│   ├── bridge_anomaly_model.pkl
 │   ├── bridge_anomaly_metrics.json
 │   └── bridge_xai_summary.json
 │
-├── docs/                          ← Additional documentation assets
-└── notebooks/                     ← Jupyter notebooks (if any)
+├── reports/                    # CrewAI-generated markdown + dashboard reports
+│
+├── frontend/                   # React/Vite/TypeScript dashboard
+│   ├── src/
+│   │   ├── App.tsx             # Main single-page application
+│   │   ├── types.ts            # TypeScript type definitions
+│   │   ├── styles.css          # Stylesheet
+│   │   └── main.tsx            # Entry point
+│   └── dist/                   # Production build (served by FastAPI)
+│
+├── docs/                       # Additional documentation
+│   ├── streamlit_instructions.md
+│   └── user_flow.md
+│
+├── notebooks/                  # Jupyter notebooks (exploratory)
+└── .cache/                     # Runtime caches (matplotlib, crewai)
 ```
 
 ---
 
-## 4. Configuration
+## 4. Getting Started
 
-**File:** `src/utils/config.py`
+### Prerequisites
 
-This is the **single source of truth** for all paths, thresholds, and hyperparameters. Every other module imports from here — no hardcoded paths anywhere else.
+- **Python 3.10+**
+- **Node.js 18+** (for the frontend)
+- A Kaggle bridge dataset CSV at `data/external/bridge_digital_twin_dataset.csv`
+- An API key for your preferred LLM provider (Gemini or OpenAI) if using agents
 
-### Path Constants
+### Installation
 
-| Constant | Path | Purpose |
-|---|---|---|
-| `PROJECT_ROOT` | Dynamically resolved | Root of the project |
-| `GNSS_RAW_PATH` | `data/gnss/raw/gnss_raw.csv` | Raw GNSS measurements input |
-| `GNSS_PROCESSED_PATH` | `data/gnss/processed/gnss_displacement.csv` | Displacement vectors output |
-| `GNSS_ANALYSIS_PATH` | `data/gnss/processed/gnss_analysis.csv` | Analysis with threshold flags |
-| `INSAR_RAW_IMAGE_DIR` | `data/insar/raw/sentinel_images/` | Folder of SAR image PNGs |
-| `INSAR_PROCESSED_PATH` | `data/insar/processed/insar_timeseries.csv` | Normalized LOS timeseries |
-| `INSAR_ANALYSIS_PATH` | `data/insar/processed/insar_analysis.csv` | Analysis with threshold flags |
-| `INSAR_MASK_DIR` | `data/insar/processed/masks/` | Binary deformation masks |
-| `INSAR_OVERLAY_DIR` | `data/insar/processed/overlays/` | Red-on-grey overlay images |
-| `SENSOR_RAW_PATH` | `data/sensors/raw/sensor_data.csv` | Raw IoT sensor readings |
-| `SENSOR_PROCESSED_PATH` | `data/sensors/processed/sensor_features.csv` | Engineered sensor features |
-| `FUSED_OUTPUT_PATH` | `data/fused/fused_displacement.csv` | Fused GNSS+InSAR output |
-| `KAGGLE_BRIDGE_DATASET_PATH` | `data/external/bridge_digital_twin_dataset.csv` | Downloaded Kaggle CSV |
-| `BRIDGE_MODEL_PATH` | `models/bridge_anomaly_model.pkl` | Trained ensemble pickle |
-| `BRIDGE_MODEL_METRICS_PATH` | `models/bridge_anomaly_metrics.json` | Precision/recall/F1/AUC |
-| `BRIDGE_XAI_SUMMARY_PATH` | `models/bridge_xai_summary.json` | Feature importance summary |
+```bash
+# 1. Clone the repository
+git clone <repo-url>
+cd Capstone_Vijay
 
-### Domain Thresholds
+# 2. Create and activate a virtual environment
+python -m venv .venv
+source .venv/bin/activate   # macOS/Linux
+# .venv\Scripts\activate    # Windows
 
-| Constant | Value | Meaning |
-|---|---|---|
-| `GNSS_THRESHOLD_MM` | `5` mm | Vertical displacement above this is flagged |
-| `INSAR_THRESHOLD_MM` | `8` mm | LOS displacement above this is flagged |
-| `ANOMALY_SCORE_THRESHOLD` | `0.7` | Isolation Forest normalized score cutoff |
-| `INSAR_IMAGE_MASK_THRESHOLD_QUANTILE` | `0.97` | Top 3% of deformation pixels become mask |
+# 3. Install Python dependencies
+pip install -r requirements.txt
 
-### ML Hyperparameters
+# 4. Configure environment variables
+cp .env.example .env
+# Edit .env and fill in your API keys
+```
 
-| Constant | Value | Meaning |
-|---|---|---|
-| `FUSION_WEIGHT_GNSS` | `0.6` | GNSS gets 60% weight in the fused signal |
-| `FUSION_WEIGHT_INSAR` | `0.4` | InSAR gets 40% weight |
-| `ISOLATION_FOREST_CONTAMINATION` | `0.1` | Expects ~10% of data to be anomalous |
-| `RANDOM_SEED` | `42` | Ensures reproducibility across all random operations |
+### Run the Pipeline (CLI)
 
----
+```bash
+# Full pipeline with synthetic data generation + Kaggle training
+python main.py
 
-## 5. Synthetic Data Generators
+# Skip data generation (reuse existing files)
+python main.py --skip-generate
 
-These three scripts create realistic synthetic data for testing the pipeline without a real sensor network. They all inject **known damage events** at a defined time point so you can verify the anomaly detection catches them.
+# Skip Kaggle bridge training
+python main.py --skip-kaggle
 
-### 5.1 GNSS Data Generator
+# Run with CrewAI agents (requires an API key)
+python main.py --run-agents --llm-provider gemini
+```
 
-**File:** `src/utils/generate_synthetic_gnss.py`
-**Function:** `generate_synthetic_gnss(output_path, periods=60, seed=42)`
+### Run the API Server
 
-Generates 60 days of daily GNSS readings simulating a bridge with gradual subsidence:
+```bash
+uvicorn src.api.main:app --reload --port 8000
+```
 
-- **X, Y** coordinates: Random walk with very small noise (σ = 0.002 m) → simulates lateral bedding shifts
-- **Z** coordinate: Random walk with small noise (σ = 0.001 m) → vertical elevation
-- **Damage injection:** Starting at day 40 (67% of the time series), Z is gradually depressed by up to **10 mm** using a linear ramp (`np.linspace(0, 0.010, ...)`), simulating progressive settlement or sinking.
+The API is available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
 
-**Output CSV columns:** `timestamp, x, y, z`
+### Run the Frontend (Development)
 
-### 5.2 InSAR Data Generator
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-**File:** `src/utils/generate_synthetic_insar.py`
-**Function:** `generate_synthetic_insar(output_path, image_dir, periods=30, image_size=128, seed=43)`
+The dashboard will be served at `http://localhost:5173` and proxies API calls to the backend.
 
-Generates 30 InSAR acquisitions every 12 days (Sentinel-1 revisit cadence):
+### Build the Frontend (Production)
 
-- **Timeseries:** Cumulative LOS displacement starting from a random walk plus a **damage ramp** injected at period 15 (50% of the time), growing to +6 mm.
-- **SAR images:** For each acquisition, a 128×128 grayscale image is generated:
-  - Background: Gaussian noise (σ = 0.03) simulating radar speckle
-  - Deformation signal: A Gaussian "bump" (σ = 0.23 normalized units) centred at a position that rotates around the image over time (using `sin/cos` of the acquisition date's day-of-year)
-  - Intensity of the bump scales with the current LOS displacement value
-  - Normalized to [0, 1] and saved as PNG
+```bash
+cd frontend
+npm run build
+```
 
-**Output:**
-- `data/insar/processed/insar_timeseries.csv` — columns: `timestamp, los_displacement`
-- `data/insar/raw/sentinel_images/*.png` — 30 SAR image files named `sar_YYYYMMDD.png`
-
-### 5.3 Sensor Data Generator
-
-**File:** `src/utils/generate_synthetic_sensor_data.py`
-**Function:** `generate_synthetic_sensor_data(output_path, periods=120, seed=45)`
-
-Generates 120 readings at 12-hour intervals (60 days) across 7 sensor channels:
-
-| Column | Description | Pattern |
-|---|---|---|
-| `temperature_c` | Air temperature | Sinusoidal oscillation ± 4 °C around 28 °C + noise |
-| `humidity_pct` | Relative humidity | Sinusoidal oscillation ± 9% around 58% + noise, clipped to [20, 95] |
-| `vibration_rms` | Vibration RMS (g or m/s²) | Absolute normal random walk (always positive) |
-| `strain_ue` | Strain in micro-strain (μϵ) | Cumulative random walk |
-| `tilt_x_deg` | Tilt around X axis | Cumulative random walk (small σ = 0.005°/step) |
-| `tilt_y_deg` | Tilt around Y axis | Cumulative random walk (smaller σ = 0.004°/step) |
-| `acoustic_db` | Acoustic emission | Mean 37 dB + noise |
-
-**Damage injection at reading 84 (70% mark):**
-- Vibration gradually increases by +0.12 (over the remaining period)
-- Strain increases by +24 μϵ
-- Tilt X increases by +0.8°, Tilt Y decreases by -0.6°
-- Acoustic increases by +7 dB
+The built `dist/` folder is automatically detected and served by FastAPI at the root path.
 
 ---
 
-## 6. GNSS Module
+## 5. Core Pipeline Modules
 
-### 6.1 Preprocessing
+The pipeline runs in sequential stages. Each stage reads output from the previous one and writes to the `data/` folder.
 
-**File:** `src/gnss/gnss_preprocessing.py`
+```
+Synthetic Data → GNSS Preprocessing → InSAR Preprocessing → Sensor Preprocessing
+     → GNSS Analysis → InSAR Analysis
+     → Data Fusion → Anomaly Detection
+     → Bridge Pipeline (Train + Predict + XAI)
+```
 
-**Purpose:** Convert raw GNSS 3D coordinates into relative displacement vectors.
+### 5.1 GNSS Module
 
-**Steps:**
-1. **Load** `gnss_raw.csv`, validate it has `timestamp, x, y, z` columns
-2. **Sort** by timestamp
-3. **Compute displacement** relative to the very first reading:
-   - `dx = x - x[0]`
-   - `dy = y - y[0]`
-   - `dz = z - z[0]`
-4. **Save** `gnss_displacement.csv` with columns: `timestamp, dx, dy, dz`
+**Files:** `src/gnss/gnss_preprocessing.py`, `src/gnss/gnss_analysis.py`
 
-**Why this matters:** Absolute coordinates (like ECEF) are meaningless for structural analysis. What matters is how much the bridge has moved from its reference position in each direction.
+#### Preprocessing (`run_gnss_preprocessing`)
+- Reads raw GNSS CSV (`data/gnss/raw/gnss_raw.csv`)
+- Computes displacement deltas from a baseline reading (columns: `dx`, `dy`, `dz`)
+- Writes processed displacement to `data/gnss/processed/gnss_displacement.csv`
 
-### 6.2 Analysis
+#### Analysis (`run_gnss_analysis`)
+- Reads processed displacement
+- Computes:
+  - `horizontal_mm` — horizontal displacement magnitude (√dx²+dy²) in millimeters
+  - `vertical_mm` — vertical displacement in millimeters
+  - `total_mm` — 3D Euclidean displacement magnitude
+  - `*_smooth` variants — 5-point rolling mean for visualization
+  - `total_mm_norm` — min-max normalized total displacement
+  - `threshold_exceeded` — binary flag (1 if `|vertical_mm| ≥ GNSS_THRESHOLD_MM`)
+- Writes to `data/gnss/processed/gnss_analysis.csv`
 
-**File:** `src/gnss/gnss_analysis.py`
-
-**Purpose:** Convert displacement vectors into engineering-meaningful measurements and flag exceedances.
-
-**Steps:**
-1. **Load** processed displacement data
-2. **Compute magnitudes** (in millimetres):
-   - `horizontal_mm = sqrt(dx² + dy²) × 1000`
-   - `vertical_mm = dz × 1000`
-   - `total_mm = sqrt(dx² + dy² + dz²) × 1000`
-3. **Flag threshold exceedance:** `threshold_exceeded = 1` if `|vertical_mm| ≥ 5 mm`
-
-**Output columns:** `timestamp, horizontal_mm, vertical_mm, total_mm, threshold_exceeded`
-
-The vertical component is specifically monitored because settlement/subsidence in bridges typically manifests as downward Z movement.
+**Key threshold:** `GNSS_THRESHOLD_MM = 5` (configurable in `config.py`)
 
 ---
 
-## 7. InSAR Module
+### 5.2 InSAR Module
 
-### 7.1 Preprocessing
+**Files:** `src/insar/insar_preprocessing.py`, `src/insar/insar_analysis.py`, `src/insar/insar_image_processing.py`
 
-**File:** `src/insar/insar_preprocessing.py`
+#### Preprocessing (`run_insar_preprocessing`)
+- Reads raw InSAR time-series data and SAR images from `data/insar/raw/`
+- Normalizes Line-Of-Sight (LOS) displacement to `los_disp_norm` column
+- Writes to `data/insar/processed/insar_timeseries.csv`
 
-**Purpose:** Normalize the LOS (Line-of-Sight) displacement timeseries to a baseline-relative signal.
+#### Analysis (`run_insar_analysis`)
+- Applies threshold detection: `threshold_exceeded = 1` if displacement ≥ `INSAR_THRESHOLD_MM`
+- Writes to `data/insar/processed/insar_analysis.csv`
 
-**Steps:**
-1. **Load** `insar_timeseries.csv`, validate `timestamp` and `los_displacement` (or `los_disp_norm`) columns
-2. **Normalize** relative to the first observation:
-   - `los_disp_norm = los_displacement - los_displacement[0]`
-3. **Save** to the same `insar_timeseries.csv`
+**Key threshold:** `INSAR_THRESHOLD_MM = 8` (configurable in `config.py`)
 
-**What is LOS displacement?** In SAR interferometry, the satellite measures the change in distance between the satellite and the ground along its line of sight. Positive LOS means the ground moved toward the satellite; negative means it moved away.
-
-### 7.2 Analysis
-
-**File:** `src/insar/insar_analysis.py`
-
-**Purpose:** Flag time points where deformation exceeds the threshold.
-
-**Steps:**
-1. **Load** processed timeseries
-2. **Compute absolute LOS:** `abs_los_disp = |los_disp_norm|`
-3. **Flag:** `threshold_exceeded = 1` if `abs_los_disp ≥ 8 mm`
-
-**Output columns:** `timestamp, los_disp_norm, abs_los_disp, threshold_exceeded`
-
-### 7.3 Image Processing
-
-**File:** `src/insar/insar_image_processing.py`
-
-**Purpose:** Process real SAR image frames into deformation masks and visual overlays.
-
-**Algorithm:**
-1. **Load all SAR images** from the `sentinel_images/` folder (PNG/JPG/TIF)
-2. **Convert to grayscale** — if the image is RGB, average the three channels
-3. **Normalize** each image to [0, 1] range
-4. **Use the first image as the baseline** (assumed no deformation at time 0)
-5. For each subsequent image:
-   - **Compute deformation:** `deformation = |current - baseline|`
-   - **Threshold the mask:** Take only the top 3% of positive deformation values (`quantile = 0.97`) → pixels above this are marked as 1 (deformed), rest as 0
-   - **Save mask** as greyscale PNG (white = deformed)
-   - **Create overlay:** Copy of the grayscale image, with deformed pixels coloured red `[1.0, 0.1, 0.1]`
-6. **Record metadata** per image: timestamp, paths to image/mask/overlay, mask ratio (fraction of pixels deformed)
+#### Image Processing (`process_insar_images`)
+- Reads raw SAR images from `data/insar/raw/sentinel_images/`
+- For each image, generates:
+  - **Deformation mask** — pixels exceeding the 97th percentile of positive deformation
+  - **Interferogram** — phase-encoded difference between current and baseline frames
+  - **Heatmap** — magnitude of deformation colored with magma colormap
+  - **Coherence map** — signal coherence inversely proportional to deformation
+  - **Overlay** — grayscale SAR image with mask pixels highlighted in red
+- Writes asset paths and statistics to `data/insar/processed/insar_mask_metadata.csv`
 
 ---
 
-## 8. Sensor Module
+### 5.3 Sensor Module
 
-**File:** `src/sensors/sensor_preprocessing.py`
+**Files:** `src/sensors/sensor_preprocessing.py`
 
-**Purpose:** Clean and feature-engineer the raw IoT sensor data.
-
-**Steps:**
-1. **Load** `sensor_data.csv`, validate `timestamp` column
-2. **Convert all non-timestamp columns to numeric** (coerce any non-numeric to NaN)
-3. **Fill missing values:** Linear interpolation first, then median fill for any remaining NaN
-4. **Feature engineering** — derived features added:
-   - `vibration_rms_roll3`: 3-reading rolling mean of vibration (smoothed trend)
-   - `strain_gradient`: First difference of strain (rate of crack propagation)
-   - `acoustic_roll3`: 3-reading rolling mean of acoustic emissions
-
-These derived features help the anomaly model detect emerging patterns that are not obvious from a single point reading.
+- Reads raw IoT sensor CSV: `data/sensors/raw/sensor_data.csv`
+- Selects and normalizes structural sensor feature columns such as:
+  - `Strain_microstrain`, `Deflection_mm`, `Vibration_ms2`, `Tilt_deg`
+  - `Temperature_C`, `Humidity_percent`
+  - `Probability_of_Failure_PoF`, `Structural_Health_Index_SHI`
+- Writes processed features to `data/sensors/processed/sensor_features.csv`
 
 ---
 
-## 9. Data Fusion Module
+### 5.4 Data Fusion Module
 
 **File:** `src/fusion/data_fusion.py`
 
-**Purpose:** Merge GNSS and InSAR displacement signals into a single fused displacement estimate.
+Merges GNSS and InSAR data streams into a single fused displacement signal.
 
 **Algorithm:**
-1. **Load** processed GNSS displacement (`dz` column) and normalized InSAR timeseries (`los_disp_norm`)
-2. **Time-align** using `pandas.merge_asof` with `direction='nearest'` — for each GNSS timestamp, finds the nearest InSAR observation in time. This handles the different sampling frequencies (GNSS is daily, InSAR is every 12 days).
-3. **Convert GNSS to mm:** `gnss_dz_mm = dz × 1000`
-4. **Compute weighted fusion:**
-   ```
-   fused_disp = 0.6 × gnss_dz_mm + 0.4 × los_disp_norm
-   ```
-   GNSS gets higher weight (60%) because it is more temporally dense and directly measures 3D position. InSAR contributes 40% as it has better spatial resolution.
-5. **Save** `fused_displacement.csv`: `timestamp, gnss_dz_mm, los_disp_norm, fused_disp`
+1. Reads `gnss_displacement.csv` and `insar_timeseries.csv`
+2. Time-aligns using `pd.merge_asof` with nearest-timestamp matching
+3. Computes the weighted fusion:
+
+```
+fused_disp = 0.6 × gnss_dz_mm + 0.4 × los_disp_norm
+```
+
+**Output columns:** `timestamp`, `gnss_dz_mm`, `los_disp_norm`, `fused_disp`
+
+| Weight | Source | Rationale |
+|---|---|---|
+| 0.6 | GNSS | Higher-frequency, directly measured vertical displacement |
+| 0.4 | InSAR | Lower-frequency, spatially comprehensive satellite measurement |
 
 ---
 
-## 10. Anomaly Detection Module
+### 5.5 Anomaly Detection Module
 
 **File:** `src/anomaly_detection/detect_anomalies.py`
 
-**Purpose:** Detect structural anomalies using unsupervised machine learning on the fused multi-sensor dataset.
+**Model:** Scikit-learn `IsolationForest` — an unsupervised tree-based anomaly detection algorithm.
 
-### Training Frame Construction
+#### Training Frame Construction (`build_training_frame`)
+1. Starts with the fused displacement DataFrame
+2. Time-joins (nearest-neighbor) additional data sources with column prefixes:
+   - `sensor_` → IoT sensor features
+   - `gnss_` → GNSS analysis outputs
+   - `insar_` → InSAR analysis outputs
+3. Handles missing values via interpolation and median fill
 
-The function `build_training_frame()` merges four data sources into a single wide feature table using `merge_asof` (nearest-time join):
+#### Anomaly Detection (`train_and_predict_anomalies`)
+1. Scales all numeric features with `StandardScaler`
+2. Fits `IsolationForest` with `contamination = ISOLATION_FOREST_CONTAMINATION` (default: 0.1)
+3. Assigns each row an `anomaly_score` (normalized 0–1) and binary `anomaly` flag:
+   - `anomaly = 1` if `IsolationForest` labels as outlier **OR** normalized score ≥ 0.7
 
-| Source | Prefix | Key Columns |
-|---|---|---|
-| Fused displacement | (none) | `gnss_dz_mm, los_disp_norm, fused_disp` |
-| Sensor features | `sensor_` | `sensor_vibration_rms, sensor_strain_ue, ...` |
-| GNSS analysis | `gnss_` | `gnss_horizontal_mm, gnss_vertical_mm, gnss_threshold_exceeded, ...` |
-| InSAR analysis | `insar_` | `insar_abs_los_disp, insar_threshold_exceeded, ...` |
-
-After joining, any missing values are filled by interpolation then median.
-
-### Isolation Forest Model
-
-The `train_and_predict_anomalies()` function:
-
-1. **Standardize features** with `StandardScaler` (zero mean, unit variance) — crucial because features have different scales (mm vs °C vs dB)
-2. **Train Isolation Forest** with `contamination=0.10` — expects 10% of readings to be anomalous
-3. **Isolation Forest algorithm:**
-   - Randomly selects a feature and a split value between the min and max of that feature
-   - Recursively partitions the data
-   - Anomalies require fewer splits to isolate (shorter path length = more anomalous)
-4. **Decision scores:** Raw scores from `decision_function()` are negated and normalized to [0, 1]:
-   - Score close to 1 = very anomalous
-   - Score close to 0 = normal
-5. **Final label:** A point is marked anomalous (`anomaly = 1`) if:
-   - The Isolation Forest labels it `-1` (outlier), **OR**
-   - Its normalized anomaly score ≥ 0.7 (the `ANOMALY_SCORE_THRESHOLD`)
-6. **Model saved** as pickle: contains the `IsolationForest`, `StandardScaler`, feature column names, and score normalization bounds.
+**Outputs:**
+- Updated `data/fused/fused_displacement.csv` with `anomaly_score` and `anomaly` columns
+- `data/fused/fused_training_frame.csv` — the full feature matrix before scoring
+- `models/sensor_anomaly_model.pkl` — serialized model + scaler + metadata
 
 ---
 
-## 11. Bridge (Kaggle) Pipeline
+### 5.6 Bridge Pipeline Module
 
 **File:** `src/bridges/kaggle_bridge_pipeline.py`
 
-This is the most complex and ML-intensive module. It trains a production-grade ensemble classifier on real bridge health monitoring data and generates per-bridge digital twins.
+This is the most complex module. It processes an external Kaggle bridge dataset to train a supervised ensemble model and generates per-bridge digital twins.
 
-### Bridge Catalog
+#### Monitored Bridge Catalog
 
-Six virtual bridges are defined in `BRIDGE_CATALOG`, each with:
-- `bridge_id`, `bridge_name`, `lat`, `lon`, `city`, `region`
-
-These represent real US cities: San Francisco, Seattle, New York, Chicago, Houston, Miami.
-
-### Step-by-Step Pipeline (`run_kaggle_bridge_pipeline()`)
-
-#### Step 1 — Load Dataset
-Reads `bridge_digital_twin_dataset.csv` from Kaggle. Expects a `Timestamp` column. Renames it to `timestamp`, parses as datetime, drops nulls, and sorts chronologically.
-
-#### Step 2 — Assign Bridge Instances
-Each row in the dataset is assigned a `bridge_id` in a round-robin fashion across the 6 bridges. Bridge metadata (lat, lon, city, region) is merged in from the catalog.
-
-#### Step 3 — Export Bridge Views
-For each of the 6 bridges:
-- Creates `data/bridges/<bridge_id>/` folder
-- Derives three modality files from the bridge's rows:
-  - **GNSS:** `gnss_raw.csv` — built from `Displacement_mm`, `Soil_Settlement_mm`, `Deflection_mm`
-  - **InSAR timeseries:** `insar_timeseries.csv` — LOS = `Deflection_mm + 0.3 × Tilt_deg`
-  - **Sensor data:** `sensor_data.csv` — all remaining columns
-- Generates **72 synthetic SAR images** per bridge using a Gaussian deformation field (same algorithm as the synthetic generator), plus masks, overlays, interferograms, heatmaps, and coherence maps
-
-#### Step 4 — Feature Engineering (`engineer_bridge_features()`)
-
-For each of 16 core signal columns (strain, deflection, vibration, tilt, displacement, crack propagation, etc.), the following features are computed **per bridge** using `groupby("bridge_id")`:
-
-| Feature Type | Suffix | Description |
+| Bridge ID | Bridge Name | Location |
 |---|---|---|
-| First difference | `_diff_1` | Rate of change between consecutive readings |
-| 6-step rolling mean | `_roll_mean_6` | Short-term trend (smoothed signal) |
-| 12-step rolling std | `_roll_std_12` | Short-term variability (volatility) |
-| 12-step EWM | `_ewm_12` | Exponentially weighted mean (decays older readings) |
+| `bridge_alpha` | Pacific Crown | San Francisco, CA |
+| `bridge_beta` | Sound Span | Seattle, WA |
+| `bridge_gamma` | Hudson Relay | New York, NY |
+| `bridge_delta` | Lakeshore Axis | Chicago, IL |
+| `bridge_epsilon` | Gulf Meridian | Houston, TX |
+| `bridge_zeta` | Atlantic Veil | Miami, FL |
 
-Additional interaction features:
-- `deflection_displacement_ratio` = Deflection / |Displacement + ε|
-- `vibration_strain_coupling` = Vibration × Strain (detects coupled failures)
-- `failure_health_gap` = Probability_of_Failure - Structural_Health_Index
+#### Pipeline Steps (`run_kaggle_bridge_pipeline`)
 
-Temporal features: `hour`, `dayofweek`, `month`, `dayofyear`, `hour_sin/cos`, `day_sin/cos`, `bridge_age_index`
+1. **Load Dataset** — Reads `data/external/bridge_digital_twin_dataset.csv`
+2. **Assign Bridges** — Distributes rows across the 6 bridge IDs in round-robin fashion
+3. **Export Bridge Views** — For each bridge, materializes:
+   - `source_dataset.csv` — full source rows for that bridge
+   - `gnss_raw.csv` — derived GNSS coordinates from sensor readings
+   - `insar_timeseries.csv` — derived InSAR LOS displacement
+   - `sensor_data.csv` — all sensor columns
+   - InSAR image assets (SAR images, masks, interferograms, heatmaps, coherence maps)
+4. **Feature Engineering** (`engineer_bridge_features`) — Adds:
+   - Temporal features: `hour`, `dayofweek`, `month`, cyclical encodings
+   - Per-bridge rolling statistics: diff-1, rolling mean (6), rolling std (12), EWM (12)
+   - Interaction features: deflection/displacement ratio, vibration×strain coupling, failure–health gap
+5. **Target Construction** (`_build_target`) — Binary anomaly label is `1` if any of:
+   - `Maintenance_Alert > 0`
+   - `Anomaly_Detection_Score ≥ 0.8`
+   - `Probability_of_Failure_PoF ≥ 0.12`
+   - Both `Flood_Event_Flag > 0` and `High_Winds_Storms > 0`
+6. **Model Training** (`train_bridge_anomaly_model`):
+   - Splits data: 70% train, 15% val, 15% test (stratified)
+   - Trains a `StackingClassifier`:
+     - `HistGradientBoostingClassifier` (learning_rate=0.045, max_depth=6, max_iter=350)
+     - `ExtraTreesClassifier` (n_estimators=450, balanced weights)
+     - `RandomForestClassifier` (n_estimators=350, balanced weights)
+     - Meta-learner: `LogisticRegression` (balanced, liblinear)
+   - Calibrates the decision threshold on the validation set using F1-optimal PR-curve
+   - Retrains final model on train+val combined
+7. **Global XAI** — Runs permutation importance on test set (PR-AUC scoring), identifies top-16 features
+8. **Per-Bridge Inference** — Runs inference for each bridge and writes `predictions.csv` and `xai_top_factors.csv`
 
-#### Step 5 — Target Construction (`_build_target()`)
+#### Metrics Reported
 
-A binary anomaly label is created — a row is **anomalous (1)** if ANY of these conditions hold:
-- `Maintenance_Alert > 0`
-- `Anomaly_Detection_Score ≥ 0.8`
-- `Probability_of_Failure_PoF ≥ 0.12`
-- Both `Flood_Event_Flag > 0` AND `High_Winds_Storms > 0`
+| Metric | Description |
+|---|---|
+| `precision` | Precision at optimal threshold |
+| `recall` | Recall at optimal threshold |
+| `f1` | F1 score |
+| `average_precision` | Area under Precision-Recall curve (PR-AUC) |
+| `roc_auc` | Area under ROC curve |
+| `threshold` | The calibrated decision threshold |
 
-#### Step 6 — Model Training
+#### Explainability (`explain_prediction_row`)
 
-**Architecture: Stacked Ensemble (StackingClassifier)**
+For a given prediction row, performs **counterfactual feature ablation**:
+- Replaces each feature value with the training-set median (reference value)
+- Measures the change in predicted anomaly probability
+- Reports: `impact`, `contribution_share`, `normalized_impact`, `probability_drop`, `saturated_counterfactual`
 
-The model uses three base classifiers and one meta-learner:
+---
 
-| Model | Role | Key Hyperparameters |
-|---|---|---|
-| `HistGradientBoostingClassifier` | Base estimator 1 | lr=0.045, depth=6, 350 iterations |
-| `ExtraTreesClassifier` | Base estimator 2 | 450 trees, balanced class weights |
-| `RandomForestClassifier` | Base estimator 3 | 350 trees, balanced class weights |
-| `LogisticRegression` | Meta-learner | Max iter=2500, balanced weights, liblinear solver |
+## 6. REST API
 
-**Preprocessing pipeline:**
-- Numeric columns → `SimpleImputer(median)` → passed directly
-- Categorical columns → `SimpleImputer(most_frequent)` → `OneHotEncoder`
+**File:** `src/api/main.py`  
+**Base URL:** `http://localhost:8000`  
+**Framework:** FastAPI
 
-**Training strategy:**
-1. Split 85:15 train/test (stratified)
-2. Further split training into 82.35:17.65 train/validation
-3. Train base models on `train` split with **sample weights** (`compute_sample_weight("balanced")`) to handle class imbalance
-4. **Optimal threshold selection** on validation set: Find the classification threshold that maximizes F1 on the precision-recall curve
-5. Retrain final model on the full train+val set (`x_train_val`)
-6. Evaluate on held-out test set
+### Endpoints
 
-#### Step 7 — Evaluation Metrics
+#### `GET /api/health`
+Health check.
+```json
+{ "status": "ok" }
+```
 
-Saved to `models/bridge_anomaly_metrics.json`:
-- `precision`, `recall`, `f1` (at optimal threshold)
-- `average_precision` (PR-AUC)
-- `roc_auc` (if both classes present in test set)
-- `threshold` value used
-- `train/validation/test positive rate`
-- `xai_top_features` — global feature importance
+---
 
-#### Step 8 — Explainability (XAI)
+#### `GET /api/overview`
+Returns fleet-level summary for all 6 monitored bridges.
 
-**Global XAI:** `permutation_importance()` is computed on the test set using `average_precision` as the metric. The top 16 most important features are stored.
-
-**Local XAI per bridge:** For each bridge, the highest-probability anomaly row is explained using **counterfactual feature ablation**:
-- For each important feature, replace its value with the median reference value
-- Measure how much the anomaly probability changes
-- The feature with the largest probability drop is the most responsible driver
-- Saved to `data/bridges/<bridge_id>/xai_top_factors.csv`
-
-#### Step 9 — Return Value
-
-The function returns:
-```python
+**Response:**
+```json
 {
-    "rows": int,           # Total dataset rows
-    "bridges": int,        # Number of unique bridges
-    "anomalies": int,      # Total anomalous predictions
-    "threshold": float,    # Optimal decision threshold
-    "metrics": dict,       # Full metrics dict
+  "fleet_metrics": {
+    "total_bridges": 6,
+    "bridges_with_alerts": 3,
+    "peak_probability": 0.9821,
+    "average_probability": 0.4723,
+    "highest_risk_bridge": "Pacific Crown"
+  },
+  "bridges": [ /* BridgeCard objects */ ],
+  "model_metrics": { /* precision, recall, f1, pr_auc, threshold, ... */ },
+  "reports": [ /* ReportSummary objects */ ]
 }
 ```
 
 ---
 
-## 12. Visualization Dashboard
+#### `GET /api/bridges/{bridge_id}`
+Returns detailed telemetry and predictions for a single bridge.
 
-**File:** `src/visualization/dashboard.py`
+**Path parameters:** `bridge_id` — one of the 6 bridge IDs (e.g., `bridge_alpha`)
 
-A **Streamlit** web application with the following interactive features:
+**Response includes:**
+- `bridge` — summary statistics
+- `telemetry.gnss` — GNSS time-series with `x`, `y`, `z`, `total_mm`
+- `telemetry.insar` — InSAR LOS displacement time-series
+- `telemetry.sensors` — Sensor feature time-series
+- `insar_frames` — InSAR image asset URLs and metadata
+- `xai_factors` — Top feature impacts for the highest-risk prediction row
+- `validation` — 5-check model validation scorecard
+- `hotspots` — Anomaly hotspot zones with coordinates and hit counts
+- `anomalies` — Filtered anomaly rows with key telemetry columns
+- `runtime_trace` — Stage-by-stage timing from the inference run
+- `report_count` — Number of CrewAI reports mentioning this bridge
 
-| Feature | Description |
+---
+
+#### `POST /api/bridges/{bridge_id}/refresh`
+Triggers a background re-inference for a specific bridge.
+
+**Response:** Operation object with `id` for polling status.
+
+---
+
+#### `POST /api/pipeline/run`
+Triggers the full SHM pipeline in a background thread.
+
+**Query params:** `generate_synthetic_data` (bool, default: `false`)
+
+**Response:** Operation object with `id` for polling status.
+
+---
+
+#### `GET /api/operations/{operation_id}`
+Poll the status of a background operation.
+
+**Response:**
+```json
+{
+  "id": "abc123",
+  "kind": "pipeline",
+  "status": "running",       // "running" | "completed" | "failed"
+  "progress": 65,            // 0-100
+  "steps": [                 // completed pipeline stages
+    { "stage": "...", "detail": "...", "status": "completed", "timestamp": "..." }
+  ],
+  "result": { ... },         // populated when status = "completed"
+  "error": null
+}
+```
+
+---
+
+#### `GET /api/reports`
+Lists all available reports in the `reports/` directory.
+
+```json
+{
+  "reports": [
+    {
+      "name": "crew_dashboard_20240101_120000.md",
+      "title": "Fleet Health Executive Brief",
+      "updated_at": "2024-01-01T12:00:00",
+      "size_bytes": 8192,
+      "kind": "crew_dashboard",
+      "provider": "gemini",
+      "model": "gemini/gemini-2.5-pro"
+    }
+  ]
+}
+```
+
+---
+
+#### `GET /api/reports/{name}`
+Returns the full content and parsed dashboard for a specific report.
+
+**Response includes:**
+- `content` — raw Markdown text
+- `dashboard` — parsed dashboard payload (hero, KPIs, priority actions, charts, etc.)
+- `metadata` — generation metadata (provider, model, focus bridges)
+
+---
+
+#### `POST /api/reports/generate`
+Triggers the CrewAI agent crew to generate a new report.
+
+**Response:** Operation object for polling.
+
+---
+
+#### `GET /assets/data/{path}`
+Serves static data assets (e.g., InSAR images) directly from the filesystem.
+
+---
+
+## 7. CrewAI Agent System
+
+**Files:** `src/agents/crew.py`, `src/agents/tools.py`, `src/agents/prompts.py`
+
+The system employs 4 specialized AI agents that collaborate in a **hierarchical process** to produce an executive dashboard report.
+
+### Agents
+
+#### 1. Fleet Intelligence Analyst
+- **Role:** Synthesizes fleet-level telemetry into executive-ready intelligence
+- **Tools:** `ReadFleetOverviewTool`, `ReadModelMetricsTool`, `ReadBridgeTelemetryTool`
+- **Output Schema:** `ExecutiveNarrative` — headline, fleet status, summary points, watchlist, model commentary, operational notes
+
+#### 2. Structural Triage Engineer
+- **Role:** Ranks bridges by risk and prescribes intervention actions
+- **Tools:** `ReadBridgePredictionsTool`, `ReadBridgeXAITool`, `ReadBridgeTelemetryTool`
+- **Output Schema:** `TriageSummary` — ranked bridge priorities, action counts, consensus notes, maintenance queue
+
+#### 3. Analytics Dashboard Strategist
+- **Role:** Designs the admin dashboard narrative and visual callouts
+- **Tools:** `ReadFleetOverviewTool`, `ReadBridgePredictionsTool`
+- **Output Schema:** `DashboardVisualPlan` — hero message, chart annotations, panel callouts, operator prompts
+
+#### 4. Executive Reporting Lead
+- **Role:** Produces the archival engineering brief
+- **Tools:** `WriteReportTool`
+- **Output Schema:** `ReportPacket` — report title, executive brief, admin recommendations, full markdown report
+
+### Agent Tools
+
+| Tool | What It Does |
 |---|---|
-| **Map view** | Interactive Plotly map showing all 6 bridge locations with colour-coded anomaly risk |
-| **Bridge selector** | Click on map marker or use dropdown to select a bridge |
-| **GNSS panel** | Time series plot of X, Y, Z displacement for the selected bridge |
-| **InSAR panel** | LOS displacement timeseries for the selected bridge |
-| **Sensor streams** | Multi-channel sensor data plots |
-| **3D bridge digital twin** | 3D visualization with anomaly markers rendered on the bridge structure |
-| **InSAR image panel** | Shows original SAR image, predicted deformation mask, and red overlay |
-| **Anomaly table** | Live table of all detected anomalous events for the bridge |
-| **XAI panel** | Bar chart of top anomaly drivers (feature importance) per bridge |
+| `ReadFleetOverviewTool` | Calls the `/api/overview` service function |
+| `ReadModelMetricsTool` | Reads `models/bridge_anomaly_metrics.json` |
+| `ReadBridgePredictionsTool` | Reads `data/bridges/{id}/predictions.csv` |
+| `ReadBridgeTelemetryTool` | Reads GNSS, InSAR, and sensor CSVs for a bridge |
+| `ReadBridgeXAITool` | Reads `data/bridges/{id}/xai_top_factors.csv` |
+| `WriteReportTool` | Saves the final markdown report to `reports/` with a companion JSON artifact |
 
-**Run with:**
-```bash
-streamlit run src/visualization/dashboard.py
-```
-Then open `http://localhost:8501` in your browser.
+### Supported LLM Providers
 
----
-
-## 13. Entry Point — `main.py`
-
-The main entry point orchestrates the complete pipeline in sequence:
-
-```python
-run_all_pipelines(
-    generate_synthetic_data=True,
-    run_kaggle=True
-)
-```
-
-### Execution Order
-
-```
-1. generate_synthetic_gnss()       → data/gnss/raw/gnss_raw.csv
-2. generate_synthetic_insar()      → data/insar/raw/... + insar_timeseries.csv
-3. generate_synthetic_sensor_data() → data/sensors/raw/sensor_data.csv
-
-4. run_gnss_preprocessing()        → data/gnss/processed/gnss_displacement.csv
-5. run_insar_preprocessing()       → data/insar/processed/insar_timeseries.csv
-6. run_sensor_preprocessing()      → data/sensors/processed/sensor_features.csv
-
-7. run_gnss_analysis()             → data/gnss/processed/gnss_analysis.csv
-8. run_insar_analysis()            → data/insar/processed/insar_analysis.csv
-
-9. run_data_fusion()               → data/fused/fused_displacement.csv
-10. run_anomaly_detection()        → fused_displacement.csv (+ anomaly cols) + model .pkl
-11. process_insar_images()         → masks/, overlays/, insar_mask_metadata.csv
-
-12. run_kaggle_bridge_pipeline()   → models/, data/bridges/
-```
-
-### CLI Arguments
-
-```
-python main.py                        # Full pipeline
-python main.py --skip-generate        # Skip steps 1-3 (use existing data)
-python main.py --skip-kaggle          # Skip step 12 (no Kaggle model)
-python main.py --skip-generate --skip-kaggle  # Core analysis only
-```
-
----
-
-## 14. Data Flow Diagram
-
-```
-[RAW DATA]
-gnss_raw.csv ──────────► gnss_preprocessing ──► gnss_displacement.csv
-                                                         │
-insar_timeseries.csv ──► insar_preprocessing ──► insar_timeseries.csv (normalized)
-                                                         │
-sentinel_images/*.png ──► insar_image_processing ──► masks/ + overlays/
-                                                         │
-sensor_data.csv ────────► sensor_preprocessing ──► sensor_features.csv
-
-                     ┌───────────────────────────────────┤
-                     │                                   │
-                     ▼                                   ▼
-              gnss_analysis.csv                    insar_analysis.csv
-              (threshold flags)                   (threshold flags)
-                     │                                   │
-                     └──────────────┬────────────────────┘
-                                    │
-                             data_fusion
-                                    │
-                         fused_displacement.csv
-                                    │
-                          anomaly_detection
-                          (Isolation Forest)
-                                    │
-                    fused_displacement.csv + anomaly cols
-                    + sensor_anomaly_model.pkl
-
-[KAGGLE DATA]
-bridge_digital_twin_dataset.csv ──► kaggle_bridge_pipeline
-                                    ├─► data/bridges/<id>/ (per-bridge views)
-                                    ├─► bridge_anomaly_model.pkl
-                                    ├─► bridge_anomaly_metrics.json
-                                    └─► bridge_xai_summary.json
-
-[DASHBOARD]
-All outputs ──► streamlit dashboard ──► http://localhost:8501
-```
-
----
-
-## 15. Key Thresholds and Parameters
-
-| Parameter | Value | Rationale |
+| Provider | Env Variable | Default Model |
 |---|---|---|
-| GNSS threshold | 5 mm vertical | Below 5 mm is within normal thermal expansion range for bridges |
-| InSAR threshold | 8 mm LOS | SAR measurement noise floor is ~2–3 mm; 8 mm indicates structural movement beyond noise |
-| Isolation Forest contamination | 10% | Standard initial assumption for infrastructure anomaly detection |
-| Anomaly score cutoff | 0.70 | Balances sensitivity and false alarm rate |
-| Fusion GNSS weight | 0.60 | Higher because GNSS is daily (6× more frequent than InSAR) |
-| Fusion InSAR weight | 0.40 | Lower frequency but higher spatial resolution |
-| InSAR mask quantile | 0.97 | Only the top 3% most deformed pixels are flagged to minimize false positives |
-| Ensemble contamination | `class_weight="balanced"` | Handles typical 10–20% positive rate in bridge anomaly datasets |
+| `gemini` (default) | `GEMINI_API_KEY` | `gemini/gemini-2.5-pro` |
+| `openai` | `OPENAI_API_KEY` | `gpt-4o-mini` |
+
+### Report Artifact Structure
+
+Each CrewAI run produces two files in `reports/`:
+- `crew_dashboard_{timestamp}.md` — Markdown report
+- `crew_dashboard_{timestamp}.dashboard.json` — Companion JSON with all agent outputs, metadata, and dashboard payload
 
 ---
 
-## 16. Generated Outputs
+## 8. Frontend Dashboard
 
-After a full `python main.py` run, the following files are created:
+**Location:** `frontend/`  
+**Stack:** React 18, TypeScript, Vite
 
-### Global (Synthetic Pipeline)
-| File | Description |
+### Key Views
+
+| View | Description |
 |---|---|
-| `data/gnss/raw/gnss_raw.csv` | 60-day GNSS position data |
-| `data/gnss/processed/gnss_displacement.csv` | dx, dy, dz relative to day 0 |
-| `data/gnss/processed/gnss_analysis.csv` | Horizontal/vertical/total mm + flag |
-| `data/insar/raw/sentinel_images/` | 30 SAR PNGs |
-| `data/insar/processed/insar_timeseries.csv` | Normalized LOS timeseries |
-| `data/insar/processed/insar_analysis.csv` | LOS + threshold flag |
-| `data/insar/processed/masks/` | Binary deformation mask PNGs |
-| `data/insar/processed/overlays/` | Red-highlighted deformation overlays |
-| `data/insar/processed/insar_mask_metadata.csv` | Paths + mask ratios per image |
-| `data/sensors/raw/sensor_data.csv` | 120 half-daily sensor readings |
-| `data/sensors/processed/sensor_features.csv` | Cleaned + feature-engineered sensors |
-| `data/fused/fused_displacement.csv` | GNSS+InSAR fused signal + anomaly labels |
-| `data/fused/fused_training_frame.csv` | Full wide training frame |
-| `models/sensor_anomaly_model.pkl` | Trained Isolation Forest artifact |
+| **Fleet Overview** | Map and list of all 6 bridges with anomaly counts and risk indicators |
+| **Bridge Detail** | Dedicated page per bridge with telemetry charts, InSAR frames, XAI waterfall, hotspot map |
+| **Anomaly Log** | Filterable table of detected anomaly rows |
+| **InSAR Viewer** | Image browser showing SAR, mask, overlay, interferogram, heatmap, coherence |
+| **Reports Workspace** | List and viewer for CrewAI-generated executive reports and dashboards |
+| **Pipeline Runner** | UI to trigger pipeline/refresh operations and watch live progress |
 
-### Per-Bridge (Kaggle Pipeline)
-| File | Description |
+### Key TypeScript Types (`src/types.ts`)
+
+| Type | Description |
 |---|---|
-| `data/bridges/bridge_registry.csv` | All 6 bridge metadata |
-| `data/bridges/bridge_predictions.csv` | Predictions for all rows |
-| `data/bridges/<id>/source_dataset.csv` | Bridge's rows from Kaggle dataset |
-| `data/bridges/<id>/gnss_raw.csv` | Derived GNSS for this bridge |
-| `data/bridges/<id>/insar_timeseries.csv` | Derived InSAR for this bridge |
-| `data/bridges/<id>/sensor_data.csv` | Sensor features for this bridge |
-| `data/bridges/<id>/predictions.csv` | Anomaly predictions per row |
-| `data/bridges/<id>/insar_mask_metadata.csv` | 72 InSAR frame metadata |
-| `data/bridges/<id>/insar_images/*.png` | 72 SAR images |
-| `data/bridges/<id>/insar_masks/*.png` | 72 deformation masks |
-| `data/bridges/<id>/insar_overlays/*.png` | 72 overlay images |
-| `data/bridges/<id>/xai_top_factors.csv` | Local XAI for top anomaly row |
-| `models/bridge_anomaly_model.pkl` | Trained stacked ensemble |
-| `models/bridge_anomaly_metrics.json` | Precision, recall, F1, AUC |
-| `models/bridge_xai_summary.json` | Global feature importances |
+| `BridgeCard` | Fleet-level summary for one bridge |
+| `BridgeDetail` | Full detail including telemetry, XAI, validation, hotspots |
+| `OverviewResponse` | Top-level API response for fleet overview |
+| `AnomalyRow` | A single anomaly detection result row |
+| `InSarFrame` | Paths and metrics for one InSAR image set |
+| `XaiFactor` | One feature's counterfactual impact on a prediction |
+| `ValidationSummary` | 5-check model validation scorecard |
+| `Hotspot` | A bridge structural zone with anomaly statistics |
+| `CrewDashboard` | Full parsed dashboard from a CrewAI report |
+| `OperationStatus` | Background task progress and step log |
 
 ---
 
-## 17. Setup and Running the Project
+## 9. Data Model
 
-### Prerequisites
-- Python 3.11 (recommended; 3.10 also works)
-- PowerShell (Windows) or Bash (Linux/macOS)
-- A Kaggle account (for downloading the dataset)
+### Bridge Registry (`data/bridges/bridge_registry.csv`)
+| Column | Type | Description |
+|---|---|---|
+| `bridge_id` | string | Unique identifier (e.g., `bridge_alpha`) |
+| `bridge_name` | string | Human-readable name |
+| `lat`, `lon` | float | Geographic coordinates |
+| `city`, `region` | string | Location |
 
-### Step 1 — Install Dependencies
+### Bridge Predictions (`data/bridges/{id}/predictions.csv`)
+| Column | Type | Description |
+|---|---|---|
+| `timestamp` | datetime | Observation time |
+| `bridge_id` | string | Bridge identifier |
+| `anomaly_probability` | float [0,1] | Model-predicted anomaly probability |
+| `anomaly` | int {0,1} | Binary anomaly flag (threshold-applied) |
+| `Deflection_mm` | float | Bending deflection |
+| `Displacement_mm` | float | Lateral displacement |
+| `Vibration_ms2` | float | Vibration acceleration |
+| `Strain_microstrain` | float | Structural strain |
+| `Structural_Health_Index_SHI` | float | Composite health score |
+| `Probability_of_Failure_PoF` | float | Raw failure probability |
+| `Vibration_Anomaly_Location` | string | Bridge zone (Deck/Tower/Cable/Pier/Joint) |
+| `Simulated_Localized_Stress_Index` | float | Localized stress metric |
 
-```powershell
-cd "c:\Users\Vijayakrishnaji\Desktop\capstone mainproject\Structural-Health-Monitoring"
-pip install -r requirements.txt
+### GNSS Data (`data/bridges/{id}/gnss_raw.csv`)
+| Column | Type | Description |
+|---|---|---|
+| `timestamp` | datetime | Observation time |
+| `x`, `y`, `z` | float | GPS coordinate (meters) |
+
+### InSAR Time-series (`data/bridges/{id}/insar_timeseries.csv`)
+| Column | Type | Description |
+|---|---|---|
+| `timestamp` | datetime | Observation time |
+| `los_displacement` | float | Line-of-sight displacement (mm) |
+
+### InSAR Mask Metadata (`data/bridges/{id}/insar_mask_metadata.csv`)
+| Column | Type | Description |
+|---|---|---|
+| `timestamp` | datetime | Frame acquisition time |
+| `image_path` | string | Path to SAR image |
+| `mask_path` | string | Path to deformation mask |
+| `overlay_path` | string | Path to overlay (mask on SAR) |
+| `interferogram_path` | string | Path to phase interferogram |
+| `heatmap_path` | string | Path to deformation heatmap |
+| `coherence_path` | string | Path to coherence map |
+| `mask_ratio` | float | Fraction of masked pixels |
+| `deformation_energy` | float | Mean normalized deformation |
+| `coherence_mean` | float | Mean coherence value |
+
+---
+
+## 10. Configuration Reference
+
+**File:** `src/utils/config.py`
+
+### Path Constants
+
+| Constant | Default Path |
+|---|---|
+| `PROJECT_ROOT` | Inferred from `config.py` location |
+| `DATA_DIR` | `{root}/data` |
+| `MODELS_DIR` | `{root}/models` |
+| `EXTERNAL_DATA_DIR` | `{root}/data/external` |
+| `BRIDGES_DIR` | `{root}/data/bridges` |
+| `GNSS_RAW_PATH` | `data/gnss/raw/gnss_raw.csv` |
+| `GNSS_PROCESSED_PATH` | `data/gnss/processed/gnss_displacement.csv` |
+| `GNSS_ANALYSIS_PATH` | `data/gnss/processed/gnss_analysis.csv` |
+| `INSAR_PROCESSED_PATH` | `data/insar/processed/insar_timeseries.csv` |
+| `SENSOR_PROCESSED_PATH` | `data/sensors/processed/sensor_features.csv` |
+| `FUSED_OUTPUT_PATH` | `data/fused/fused_displacement.csv` |
+| `KAGGLE_BRIDGE_DATASET_PATH` | `data/external/bridge_digital_twin_dataset.csv` |
+| `BRIDGE_MODEL_PATH` | `models/bridge_anomaly_model.pkl` |
+| `BRIDGE_MODEL_METRICS_PATH` | `models/bridge_anomaly_metrics.json` |
+| `SENSOR_ANOMALY_MODEL_PATH` | `models/sensor_anomaly_model.pkl` |
+
+### Thresholds and Hyperparameters
+
+| Constant | Default | Description |
+|---|---|---|
+| `GNSS_THRESHOLD_MM` | `5` | Vertical displacement (mm) triggering a GNSS alert |
+| `INSAR_THRESHOLD_MM` | `8` | LOS displacement (mm) triggering an InSAR alert |
+| `ANOMALY_SCORE_THRESHOLD` | `0.7` | Normalized Isolation Forest score for anomaly labeling |
+| `FUSION_WEIGHT_GNSS` | `0.6` | Weight of GNSS signal in fused displacement |
+| `FUSION_WEIGHT_INSAR` | `0.4` | Weight of InSAR signal in fused displacement |
+| `ISOLATION_FOREST_CONTAMINATION` | `0.1` | Expected anomaly rate for Isolation Forest |
+| `RANDOM_SEED` | `42` | Global random seed for reproducibility |
+| `INSAR_IMAGE_MASK_THRESHOLD_QUANTILE` | `0.97` | Quantile for thresholding deformation in InSAR masks |
+
+---
+
+## 11. CLI Reference
+
+**Entry point:** `python main.py`
+
+```
+usage: main.py [-h] [--skip-generate] [--skip-kaggle] [--run-agents]
+               [--llm-provider {openai,groq,grok}] [--api-key API_KEY]
+               [--llm-model LLM_MODEL]
 ```
 
-### Step 2 — Set Kaggle API Token
+| Flag | Default | Description |
+|---|---|---|
+| `--skip-generate` | off | Skip synthetic data generation; reuse existing files |
+| `--skip-kaggle` | off | Skip Kaggle bridge model training |
+| `--run-agents` | off | Run the CrewAI agent crew after the pipeline |
+| `--llm-provider` | `openai` | LLM backend: `openai` or `gemini` |
+| `--api-key` | from env | Override API key for the selected LLM provider |
+| `--llm-model` | provider default | Override model name (e.g., `gpt-4o`, `gemini-2.5-pro`) |
 
-Get your token from `kaggle.com → Settings → API → Create New Token`.
+### Example Commands
 
-```powershell
-# For the current session only:
-$env:KAGGLE_API_TOKEN="your_kaggle_api_key_here"
-
-# To make it permanent across all sessions:
-[System.Environment]::SetEnvironmentVariable("KAGGLE_API_TOKEN", "your_kaggle_api_key_here", "User")
-```
-
-### Step 3 — Download Kaggle Dataset
-
-```powershell
-& "$env:LOCALAPPDATA\Programs\Python\Python311\Scripts\kaggle.exe" datasets download `
-  -d mithil27360/digital-twin-bridge-structural-health-monitoring `
-  -p data/external --unzip
-```
-
-The downloaded file should appear at `data/external/bridge_digital_twin_dataset.csv`.
-
-### Step 4 — Run the Pipeline
-
-```powershell
-# Full run (recommended first time):
+```bash
+# Default run (generate synthetic data + train Kaggle model)
 python main.py
 
-# Skip synthetic data generation (reuse existing CSVs):
+# Fast re-run using existing data artifacts
 python main.py --skip-generate
 
-# Skip Kaggle bridge model (no dataset required):
-python main.py --skip-kaggle
+# Full pipeline + AI agent report using Gemini
+python main.py --run-agents --llm-provider gemini --api-key YOUR_KEY
 
-# Fastest option (only core analysis, no Kaggle, reuse data):
-python main.py --skip-generate --skip-kaggle
+# Full pipeline + AI report with a specific model
+python main.py --run-agents --llm-provider gemini --llm-model gemini/gemini-2.0-flash
 ```
 
-### Step 5 — Launch the Dashboard
+### Console Output
 
-```powershell
-streamlit run src/visualization/dashboard.py
+A successful run prints:
+
 ```
-
-Open your browser at **http://localhost:8501**.
+Structural Health Monitoring pipeline completed
+Rows: GNSS=N, InSAR=N, Sensors=N, Fused=N
+Flags: GNSS threshold hits=N, InSAR threshold hits=N, Detected anomalies=N, InSAR frames=N
+Kaggle model: rows=N, bridges=6, predicted_anomalies=N, threshold=0.XXXX
+Kaggle metrics: precision=0.XXXX, recall=0.XXXX, f1=0.XXXX, pr_auc=0.XXXX
+```
 
 ---
 
-## 18. Dependencies
+## 12. Environment Variables
 
-| Package | Version | Purpose |
+Configure via the `.env` file in the project root (copy from `.env.example`).
+
+| Variable | Required | Description |
 |---|---|---|
-| `numpy` | Latest | Numerical arrays, random number generation, matrix math |
-| `pandas` | Latest | DataFrames, CSV I/O, time-series operations, merge_asof |
-| `matplotlib` | Latest | Saving SAR images and masks as PNG files |
-| `scikit-learn` | Latest | IsolationForest, StackingClassifier, StandardScaler, metrics |
-| `plotly` | Latest | Interactive maps and charts in the dashboard |
-| `streamlit` | Latest | Web dashboard framework |
-| `kaggle` | Latest | Downloading datasets from Kaggle via CLI |
+| `CREWAI_PROVIDER` | When using agents | LLM provider identifier (`gemini`, `openai`) |
+| `GEMINI_MODEL` | When using Gemini | Model string (e.g., `gemini/gemini-2.5-pro`) |
+| `GEMINI_API_KEY` | When using Gemini | Google Gemini API key |
+| `GOOGLE_API_KEY` | Alternative | Fallback if `GEMINI_API_KEY` is not set |
+| `OPENAI_API_KEY` | When using OpenAI | OpenAI API key |
+| `CREWAI_DISABLE_TELEMETRY` | Recommended | Set `true` to disable CrewAI usage tracking |
 
-All are installable via: `pip install -r requirements.txt`
+**Example `.env`:**
+```env
+CREWAI_PROVIDER=gemini
+GEMINI_MODEL=gemini/gemini-2.5-pro
+GEMINI_API_KEY=your_actual_api_key_here
+CREWAI_DISABLE_TELEMETRY=true
+```
+
+> **Security:** Never commit your `.env` file. It is already listed in `.gitignore`.
 
 ---
 
-## 19. Glossary
+## 13. Key ML Models
 
-| Term | Meaning |
+### Sensor Anomaly Model (`models/sensor_anomaly_model.pkl`)
+
+| Property | Value |
 |---|---|
-| **GNSS** | Global Navigation Satellite System — umbrella term for GPS, GLONASS, Galileo, BeiDou |
-| **InSAR** | Interferometric Synthetic Aperture Radar — measures surface deformation using satellite radar phase differences |
-| **LOS** | Line-of-Sight — the direction from the satellite to the ground point |
-| **Displacement** | Physical movement of the structure from a reference position |
-| **dx, dy, dz** | Relative displacement in East, North, and Vertical directions respectively |
-| **Rolling mean/std** | Statistics computed over a sliding window of the most recent N readings |
-| **EWM** | Exponentially Weighted Mean — like a rolling mean but recent values count more |
-| **Isolation Forest** | Unsupervised anomaly detection algorithm that isolates outliers via random partitioning |
-| **Stacking Classifier** | Ensemble method where base model predictions are used as inputs to a meta-model |
-| **Precision** | Fraction of flagged anomalies that are truly anomalous (TP / (TP + FP)) |
-| **Recall** | Fraction of true anomalies that were caught (TP / (TP + FN)) |
-| **F1 Score** | Harmonic mean of precision and recall |
-| **PR-AUC** | Area under the Precision-Recall curve — better than ROC-AUC for imbalanced datasets |
-| **XAI** | eXplainable AI — techniques to interpret ML predictions |
-| **Contamination** | In Isolation Forest: the expected fraction of anomalies in the training data |
-| **merge_asof** | Pandas time-series join that aligns rows to the nearest timestamp |
-| **Digital Twin** | A virtual replica of a physical structure, updated with real sensor data |
-| **SAR** | Synthetic Aperture Radar — a radar imaging technique used by satellites like Sentinel-1 |
-| **Speckle** | Grainy noise in SAR images caused by coherent scattering of radar waves |
-| **μϵ (micro-strain)** | Unit of strain measurement: one part per million deformation |
+| **Algorithm** | `IsolationForest` (scikit-learn) |
+| **Preprocessing** | `StandardScaler` |
+| **Contamination** | 0.1 |
+| **Purpose** | Unsupervised anomaly detection on fused GNSS+InSAR+Sensor data |
+| **Inputs** | All numeric columns from the fused training frame |
+| **Output** | `anomaly_score` [0,1] and binary `anomaly` label |
+
+### Bridge Anomaly Ensemble (`models/bridge_anomaly_model.pkl`)
+
+| Property | Value |
+|---|---|
+| **Algorithm** | `StackingClassifier` |
+| **Base estimators** | HistGradientBoostingClassifier, ExtraTreesClassifier, RandomForestClassifier |
+| **Meta-learner** | LogisticRegression |
+| **Preprocessing** | `ColumnTransformer` (median imputation for numeric, mode+OHE for categorical) |
+| **Class balancing** | `compute_sample_weight("balanced")` on training |
+| **Threshold** | Calibrated via F1-optimal precision-recall curve on validation set |
+| **Purpose** | Supervised anomaly scoring on bridge sensor telemetry |
+| **Features** | ~100+ engineered features from 16 core sensor signals |
+| **Key metrics** | Precision, Recall, F1, PR-AUC, ROC-AUC |
+
+### Model Validation Scorecard
+
+The API computes a 5-check validation score (0–100) per bridge:
+
+| Check | Weight | Source |
+|---|---|---|
+| **Model Quality Gate** | 30% | Precision + Recall + PR-AUC average |
+| **Confidence Stability** | 25% | Peak and top-window mean anomaly probability |
+| **Cross-Modal Agreement** | 20% | Number of supporting signal modalities agreeing |
+| **Explainability Support** | 15% | Feature diversity, effective driver count, concentration index |
+| **Hotspot Consistency** | 10% | Dominant anomaly zone share |
+
+**Status mapping:**
+
+| Score | Status |
+|---|---|
+| ≥ 80 | `verified` |
+| 60–79 | `review` |
+| < 60 | `weak` |
 
 ---
 
-*Documentation generated for the Structural Health Monitoring — Bridge Digital Twin project.*
-*Last updated: March 2026*
+*Documentation generated from source code — April 2026.*

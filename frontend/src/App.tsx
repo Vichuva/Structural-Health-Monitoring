@@ -1517,42 +1517,91 @@ function FleetMap({
   selectedBridgeId: string;
   onSelect: (bridgeId: string) => void;
 }) {
+  const mapBounds = {
+    minLon: -124.8,
+    maxLon: -66.0,
+    minLat: 24.0,
+    maxLat: 49.8,
+    innerX: 10,
+    innerY: 12,
+    innerWidth: 80,
+    innerHeight: 66
+  };
   const projected = bridges.map((bridge) => ({
     ...bridge,
-    x: ((bridge.lon + 125) / 60) * 100,
-    y: (1 - (bridge.lat - 24) / 25) * 100
+    x: mapBounds.innerX + ((bridge.lon - mapBounds.minLon) / (mapBounds.maxLon - mapBounds.minLon)) * mapBounds.innerWidth,
+    y: mapBounds.innerY + (1 - (bridge.lat - mapBounds.minLat) / (mapBounds.maxLat - mapBounds.minLat)) * mapBounds.innerHeight
   }));
   const selected = projected.find((bridge) => bridge.bridge_id === selectedBridgeId) ?? projected[0];
 
   return (
     <div className="map-shell">
       <svg viewBox="0 0 100 100" className="fleet-map">
-        <rect x="1" y="1" width="98" height="98" rx="12" fill="#f4eee4" stroke="rgba(66,54,43,0.12)" />
-        {selected &&
-          projected
-            .filter((bridge) => bridge.bridge_id !== selected.bridge_id)
-            .map((bridge) => (
-              <path
-                key={`${selected.bridge_id}-${bridge.bridge_id}`}
-                d={`M ${selected.x} ${selected.y} Q ${(selected.x + bridge.x) / 2} ${Math.min(selected.y, bridge.y) - 10} ${bridge.x} ${bridge.y}`}
-                stroke="rgba(114, 92, 67, 0.18)"
-                strokeWidth="0.8"
-                fill="none"
-              />
-            ))}
+        <defs>
+          <linearGradient id="oceanGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+            <stop offset="0%" stopColor="#dbe8e4" />
+            <stop offset="100%" stopColor="#edf2ec" />
+          </linearGradient>
+          <linearGradient id="landGradient" x1="0%" x2="100%" y1="0%" y2="100%">
+            <stop offset="0%" stopColor="#efe5d3" />
+            <stop offset="100%" stopColor="#e4d6c0" />
+          </linearGradient>
+          <filter id="mapShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="1.8" stdDeviation="1.6" floodColor="rgba(69,55,44,0.18)" />
+          </filter>
+        </defs>
+        <rect x="1" y="1" width="98" height="98" rx="12" fill="url(#oceanGradient)" stroke="rgba(66,54,43,0.08)" />
+        <path
+          className="us-landmass"
+          d="M11 27 L14 22 L20 18 L27 16 L35 15 L44 14.5 L52 15 L60 16.5 L68 18 L76 20.5 L84 24 L89 29 L90.5 33.5 L89.8 38 L92 42.5 L89 47 L86 50.5 L84.5 56 L81 61 L76.5 65.5 L71 69.5 L64 73 L57 75.2 L49 76.4 L40.5 76.8 L32 76 L24.5 74.5 L18.5 71.5 L15 67.5 L12.5 62.5 L10.5 57 L9 51 L8.5 46 L7.5 40 L8.5 34.5 Z"
+          fill="url(#landGradient)"
+          stroke="rgba(94,77,58,0.20)"
+          strokeWidth="0.7"
+          filter="url(#mapShadow)"
+        />
+        <path
+          d="M61 25.5 C64 24.5 67 25 68.5 27.5 C66.8 29.5 64.5 31 61.5 30.5 C60 28.8 59.8 27 61 25.5 Z"
+          fill="url(#oceanGradient)"
+          opacity="0.92"
+        />
+        <path
+          d="M67.5 28.8 C70 28 72.5 28.8 73.5 31.2 C72.1 32.8 69.9 33.9 67.8 33.5 C66.6 31.9 66.5 30.2 67.5 28.8 Z"
+          fill="url(#oceanGradient)"
+          opacity="0.92"
+        />
+        <path className="region-divider" d="M31 18 C30 30 30 44 31 59" />
+        <path className="region-divider" d="M52 16 C52.3 29 52.2 41 52 61" />
+        <path className="region-divider" d="M73 21 C72 33 72 47 72 59" />
+        <text x="20" y="24" className="map-region-label">WEST</text>
+        <text x="41" y="24" className="map-region-label">MIDWEST</text>
+        <text x="71.5" y="25" className="map-region-label">NORTHEAST</text>
+        <text x="45.5" y="63.5" className="map-region-label">SOUTH</text>
+        {selected && (
+          <g className="map-focus-ring">
+            <circle cx={selected.x} cy={selected.y} r="6.8" />
+            <circle cx={selected.x} cy={selected.y} r="4.9" />
+          </g>
+        )}
         {projected.map((bridge) => (
           <g key={bridge.bridge_id} onClick={() => onSelect(bridge.bridge_id)} className="map-node">
             <circle
               cx={bridge.x}
               cy={bridge.y}
-              r={bridge.bridge_id === selectedBridgeId ? 3.6 : 2.8}
+              r={bridge.bridge_id === selectedBridgeId ? 4.4 : 3.3}
+              className={`map-node-halo ${bridge.bridge_id === selectedBridgeId ? "active" : ""}`}
+            />
+            <circle
+              cx={bridge.x}
+              cy={bridge.y}
+              r={bridge.bridge_id === selectedBridgeId ? 2.7 : 2.15}
               fill={bridge.bridge_id === selectedBridgeId ? "#2f5d50" : riskColor(bridge.max_probability)}
             />
-            <text x={bridge.x + 2.5} y={bridge.y - 2.5}>
+            <text x={bridge.x + 2.2} y={bridge.y - 2.2} className="map-bridge-label">
               {bridge.bridge_name}
             </text>
           </g>
         ))}
+        <text x="7" y="95" className="map-caption">Contiguous U.S. fleet view projected from bridge coordinates.</text>
       </svg>
     </div>
   );
@@ -1799,16 +1848,19 @@ function XaiList({ factors }: { factors: XaiFactor[] }) {
           </div>
           <div className="xai-context-block">
             <small>
-              Baseline {formatPercent(factor.baseline_probability ?? 0)} → counterfactual {formatPercent(factor.counterfactual_probability ?? 0)}
+              {describeXaiNarrative(factor)}
             </small>
             <small className="xai-contribution-note">
-              Contribution share {((Math.abs(factor.impact ?? 0) / totalImpact) * 100).toFixed(1)}%
+              Contribution share {(((factor.contribution_share ?? Math.abs(factor.impact ?? 0) / totalImpact)) * 100).toFixed(1)}%
             </small>
           </div>
           <div className="xai-bar">
-            <div style={{ width: `${(Math.abs(factor.impact ?? 0) / maxImpact) * 100}%` }} />
+            <div style={{ width: `${((factor.normalized_impact ?? Math.abs(factor.impact ?? 0) / maxImpact)) * 100}%` }} />
           </div>
-          <em className="xai-impact-value">{formatImpactValue(factor.impact)}</em>
+          <em className="xai-impact-value">
+            {formatImpactValue(factor.impact)}
+            <span>{describeImpactSuffix(factor)}</span>
+          </em>
         </div>
       ))}
     </div>
@@ -2060,6 +2112,21 @@ function formatImpactValue(value: number | null | undefined) {
     return value.toExponential(2);
   }
   return value.toFixed(6);
+}
+
+function describeXaiNarrative(factor: XaiFactor) {
+  const baseline = factor.baseline_probability ?? 0;
+  const counterfactual = factor.counterfactual_probability ?? 0;
+  const drop = factor.probability_drop ?? Math.max(0, baseline - counterfactual);
+  if (factor.saturated_counterfactual || (baseline >= 0.995 && counterfactual >= 0.995)) {
+    return `Saturated anomaly regime: the alert remains high-confidence under counterfactual substitution; local ranking and contribution share are the reliable signals.`;
+  }
+  return `Baseline ${formatPercent(baseline)} → counterfactual ${formatPercent(counterfactual)} (${formatImpactValue(drop)} probability drop).`;
+}
+
+function describeImpactSuffix(factor: XaiFactor) {
+  const drop = factor.probability_drop ?? Math.abs(factor.impact ?? 0);
+  return drop > 0 ? `Probability delta ${formatImpactValue(drop)}` : "Relative local influence";
 }
 
 function asMetric(value: unknown) {

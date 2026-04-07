@@ -114,6 +114,10 @@ export type XaiFactor = {
   impact: number | null;
   baseline_probability: number | null;
   counterfactual_probability: number | null;
+  contribution_share?: number | null;
+  normalized_impact?: number | null;
+  probability_drop?: number | null;
+  saturated_counterfactual?: boolean;
 };
 
 export type ValidationCheck = {

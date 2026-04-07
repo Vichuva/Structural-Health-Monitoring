@@ -333,15 +333,30 @@ def _bridge_xai(bridge_dir: Path) -> list[dict[str, Any]]:
     xai = _read_csv(bridge_dir / "xai_top_factors.csv")
     if xai.empty:
         return []
-    return [
+    records = [
         {
             "feature": str(row.get("feature", "")),
             "impact": _safe_float(row.get("impact"), 12),
             "baseline_probability": _safe_float(row.get("baseline_probability"), 9),
             "counterfactual_probability": _safe_float(row.get("counterfactual_probability"), 9),
+            "contribution_share": _safe_float(row.get("contribution_share"), 6),
+            "normalized_impact": _safe_float(row.get("normalized_impact"), 6),
+            "probability_drop": _safe_float(row.get("probability_drop"), 12),
+            "saturated_counterfactual": bool(row.get("saturated_counterfactual", False)),
         }
         for _, row in xai.iterrows()
     ]
+    total_abs_impact = sum(abs(float(item.get("impact") or 0.0)) for item in records) or 1.0
+    max_abs_impact = max((abs(float(item.get("impact") or 0.0)) for item in records), default=1.0) or 1.0
+    for item in records:
+        impact = abs(float(item.get("impact") or 0.0))
+        baseline = float(item.get("baseline_probability") or 0.0)
+        counterfactual = float(item.get("counterfactual_probability") or 0.0)
+        item["contribution_share"] = _safe_float(item.get("contribution_share"), 6) or round(impact / total_abs_impact, 6)
+        item["normalized_impact"] = _safe_float(item.get("normalized_impact"), 6) or round(impact / max_abs_impact, 6)
+        item["probability_drop"] = _safe_float(item.get("probability_drop"), 12) or round(max(0.0, baseline - counterfactual), 12)
+        item["saturated_counterfactual"] = bool(item.get("saturated_counterfactual")) or (baseline >= 0.995 and counterfactual >= 0.995)
+    return records
 
 
 def _score_status(score: int) -> str:
@@ -414,20 +429,39 @@ def _bridge_validation(predictions: pd.DataFrame, xai_factors: list[dict[str, An
 
     confidence_score = int(round(min(1.0, (top_probability * 0.65) + (mean_top_probability * 0.35)) * 100))
 
-    top_impacts = [abs(float(item.get("impact") or 0.0)) for item in xai_factors[:8]]
-    impact_total = sum(top_impacts)
-    impact_shares = [impact / impact_total for impact in top_impacts if impact_total > 0 and impact > 0]
-    diversified_factors = sum(1 for share in impact_shares if share >= 0.08)
+    impact_shares = [
+        max(0.0, float(item.get("contribution_share") or 0.0))
+        for item in xai_factors[:8]
+        if float(item.get("contribution_share") or 0.0) > 0.0
+    ]
+    diversified_factors = sum(1 for share in impact_shares if share >= 0.05)
+    top_share = max(impact_shares, default=0.0)
+    concentration_index = sum(share * share for share in impact_shares)
+    effective_driver_count = (1.0 / concentration_index) if concentration_index > 0 else 0.0
     avg_counterfactual_drop = 0.0
+    saturated_counterfactuals = 0
     if xai_factors:
-        drops = [
-            max(0.0, float(item.get("baseline_probability") or 0.0) - float(item.get("counterfactual_probability") or 0.0))
-            for item in xai_factors[:8]
-        ]
+        drops = [max(0.0, float(item.get("probability_drop") or 0.0)) for item in xai_factors[:8]]
         avg_counterfactual_drop = sum(drops) / len(drops)
-    diversification_component = min(1.0, diversified_factors / 3.0)
-    counterfactual_component = min(1.0, avg_counterfactual_drop / 0.0005)
-    explainability_score = int(round(min(1.0, diversification_component * 0.75 + counterfactual_component * 0.25) * 100))
+        saturated_counterfactuals = sum(1 for item in xai_factors[:8] if bool(item.get("saturated_counterfactual")))
+    diversity_component = min(1.0, diversified_factors / 4.0)
+    effective_count_component = min(1.0, effective_driver_count / 2.2)
+    concentration_component = max(0.0, 1.0 - max(0.0, top_share - 0.7) / 0.3)
+    saturation_component = 0.8 if saturated_counterfactuals >= max(1, len(xai_factors[:8]) // 2) else 1.0
+    explainability_score = int(
+        round(
+            min(
+                1.0,
+                (
+                    diversity_component * 0.4
+                    + effective_count_component * 0.4
+                    + concentration_component * 0.2
+                )
+                * saturation_component,
+            )
+            * 100
+        )
+    )
 
     hotspot_consistency_score = 0
     hotspot_detail = "No anomaly hotspot distribution available."
@@ -450,6 +484,11 @@ def _bridge_validation(predictions: pd.DataFrame, xai_factors: list[dict[str, An
         f"Model quality gate: precision {precision:.3f}, recall {recall:.3f}, PR-AUC {average_precision:.3f}.",
         f"Peak anomaly probability is {top_probability:.1%} with a top-window mean of {mean_top_probability:.1%}.",
         f"Cross-signal agreement detected across {len(agreeing_modalities)} supporting modalities: {', '.join(agreeing_modalities) if agreeing_modalities else 'none'}.",
+        (
+            f"Local explainability resolves into {diversified_factors} material drivers "
+            f"(effective driver count {effective_driver_count:.1f}); "
+            f"{saturated_counterfactuals} of the top drivers remain in a saturated anomaly regime."
+        ),
         hotspot_detail,
     ]
 
@@ -482,7 +521,12 @@ def _bridge_validation(predictions: pd.DataFrame, xai_factors: list[dict[str, An
                 "name": "Explainability Support",
                 "status": _check_status(explainability_score),
                 "score": explainability_score,
-                "detail": f"{diversified_factors} drivers exceed meaningful contribution share; average counterfactual drop {avg_counterfactual_drop:.6f}.",
+                "detail": (
+                    f"{diversified_factors} drivers exceed 5% contribution share; "
+                    f"effective driver count {effective_driver_count:.1f}; "
+                    f"top-driver share {top_share:.1%}; "
+                    f"average probability drop {avg_counterfactual_drop:.2e}."
+                ),
             },
             {
                 "name": "Hotspot Consistency",

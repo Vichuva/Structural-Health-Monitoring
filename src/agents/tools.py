@@ -260,6 +260,8 @@ class ReadBridgeXAITool(ProgressAwareTool):
                     "impact": _safe_float(row.get("impact"), 6),
                     "baseline_probability": _safe_float(row.get("baseline_probability"), 6),
                     "counterfactual_probability": _safe_float(row.get("counterfactual_probability"), 6),
+                    "contribution_share": _safe_float(row.get("contribution_share"), 6),
+                    "probability_drop": _safe_float(row.get("probability_drop"), 10),
                 }
                 for _, row in df.head(8).iterrows()
             ],

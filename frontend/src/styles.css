@@ -484,11 +484,57 @@ input {
 
 .fleet-map text {
   fill: #4b3f33;
-  font-size: 2.7px;
+}
+
+.us-landmass {
+  transition: fill 180ms ease;
+}
+
+.region-divider {
+  fill: none;
+  stroke: rgba(102, 86, 67, 0.16);
+  stroke-width: 0.45;
+  stroke-dasharray: 1.2 1.2;
+}
+
+.map-region-label {
+  font-size: 2.2px;
+  letter-spacing: 0.7px;
+  fill: rgba(83, 72, 60, 0.7);
+}
+
+.map-bridge-label {
+  font-size: 2.45px;
+  font-weight: 700;
+  fill: #4b3f33;
+}
+
+.map-caption {
+  font-size: 1.9px;
+  fill: rgba(83, 72, 60, 0.72);
+}
+
+.map-focus-ring circle {
+  fill: none;
+  stroke: rgba(47, 93, 80, 0.18);
+  stroke-width: 0.8;
+}
+
+.map-node-halo {
+  fill: rgba(199, 90, 54, 0.14);
+}
+
+.map-node-halo.active {
+  fill: rgba(47, 93, 80, 0.18);
 }
 
 .map-node {
   cursor: pointer;
+  transition: opacity 150ms ease;
+}
+
+.map-node:hover .map-node-halo {
+  fill: rgba(199, 90, 54, 0.22);
 }
 
 .priority-list,
@@ -1144,9 +1190,18 @@ input {
 }
 
 .xai-impact-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
   justify-self: end;
   font-style: normal;
   font-variant-numeric: tabular-nums;
+}
+
+.xai-impact-value span {
+  color: #7a6755;
+  font-size: 0.82rem;
 }
 
 .table-preview-shell {

@@ -472,6 +472,17 @@ def explain_prediction_row(model_pipeline, row_frame, reference_values, feature_
 
     impact_frame["abs_impact"] = impact_frame["impact"].abs()
     impact_frame = impact_frame.sort_values("abs_impact", ascending=False).head(top_n).reset_index(drop=True)
+    total_abs_impact = float(impact_frame["abs_impact"].sum()) or 1.0
+    max_abs_impact = float(impact_frame["abs_impact"].max()) or 1.0
+    impact_frame["contribution_share"] = impact_frame["abs_impact"] / total_abs_impact
+    impact_frame["normalized_impact"] = impact_frame["abs_impact"] / max_abs_impact
+    impact_frame["probability_drop"] = (
+        impact_frame["baseline_probability"] - impact_frame["counterfactual_probability"]
+    ).clip(lower=0.0)
+    impact_frame["saturated_counterfactual"] = (
+        (impact_frame["baseline_probability"] >= 0.995)
+        & (impact_frame["counterfactual_probability"] >= 0.995)
+    )
     return impact_frame.drop(columns=["abs_impact"])
 
 
